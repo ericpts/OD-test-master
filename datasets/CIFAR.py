@@ -3,6 +3,7 @@ import torchvision.transforms as transforms
 from datasets import SubDataset, AbstractDomainInterface, ExpandRGBChannels
 from torchvision import datasets
 
+
 def filter_indices(dataset, indices, filter_label):
     accept = []
     for ind in indices:
@@ -11,53 +12,78 @@ def filter_indices(dataset, indices, filter_label):
             accept.append(ind)
     return torch.IntTensor(accept)
 
+
 class CIFAR10(AbstractDomainInterface):
     """
         CIFAR10: 50,000 train + 10,000 test. (3x32x32)
         D1: (40,000 train + 10,000 valid) + (10,000 test)
         D2 (Dv, Dt): 50,000 valid + 10,000 test.
     """
-    dataset_path="cifar10"
-    def __init__(self, root_path='./workspace/datasets/cifar10', download=False, extract=False, doubledownsample=None):
+
+    dataset_path = "cifar10"
+
+    def __init__(
+        self,
+        root_path="./workspace/datasets/cifar10",
+        download=False,
+        extract=False,
+        doubledownsample=None,
+    ):
         super(CIFAR10, self).__init__()
-        im_transformer  = transforms.Compose([transforms.ToTensor()])
+        im_transformer = transforms.Compose([transforms.ToTensor()])
         self.D1_train_ind = torch.arange(0, 40000).int()
         self.D1_valid_ind = torch.arange(40000, 50000).int()
-        self.D1_test_ind  = torch.arange(0, 10000).int()
+        self.D1_test_ind = torch.arange(0, 10000).int()
 
         self.D2_valid_ind = torch.arange(0, 50000).int()
-        self.D2_test_ind  = torch.arange(0, 10000).int()
+        self.D2_test_ind = torch.arange(0, 10000).int()
 
-        self.ds_train   = datasets.CIFAR10(root_path,
-                                        train=True,
-                                        transform=im_transformer,
-                                        download=download)
-        self.ds_test    = datasets.CIFAR10(root_path,
-                                        train=False,
-                                        transform=im_transformer,
-                                        download=download)
-    
+        self.ds_train = datasets.CIFAR10(
+            root_path, train=True, transform=im_transformer, download=download
+        )
+        self.ds_test = datasets.CIFAR10(
+            root_path, train=False, transform=im_transformer, download=download
+        )
+
     def get_D1_train(self):
         return SubDataset(self.name, self.ds_train, self.D1_train_ind)
+
     def get_D1_valid(self):
         return SubDataset(self.name, self.ds_train, self.D1_valid_ind, label=0)
+
     def get_D1_test(self):
         return SubDataset(self.name, self.ds_test, self.D1_test_ind, label=0)
 
     def get_D2_valid(self, D1):
         assert self.is_compatible(D1)
-        return SubDataset(self.name, self.ds_train, self.D2_valid_ind, label=1, transform=D1.conformity_transform())
+        return SubDataset(
+            self.name,
+            self.ds_train,
+            self.D2_valid_ind,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def get_D2_test(self, D1):
         assert self.is_compatible(D1)
-        return SubDataset(self.name, self.ds_test, self.D2_test_ind, label=1, transform=D1.conformity_transform())
+        return SubDataset(
+            self.name,
+            self.ds_test,
+            self.D2_test_ind,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def conformity_transform(self):
-        return transforms.Compose([ExpandRGBChannels(),
-                                   transforms.ToPILImage(),
-                                   transforms.Resize((32, 32)),
-                                   transforms.ToTensor(),                                   
-                                   ])
+        return transforms.Compose(
+            [
+                ExpandRGBChannels(),
+                transforms.ToPILImage(),
+                transforms.Resize((32, 32)),
+                transforms.ToTensor(),
+            ]
+        )
+
 
 class CIFAR100(AbstractDomainInterface):
     """
@@ -65,26 +91,32 @@ class CIFAR100(AbstractDomainInterface):
         D1: (40,000 train + 10,000 valid) + (10,000 test)
         D2 (Dv , Dt): 50,000 valid + 10,000 test.
     """
+
     dataset_path = "cifar100"
-    def __init__(self, root_path="./workspace/datasets/cifar100", download=False, extract=False, doubledownsample=None):
+
+    def __init__(
+        self,
+        root_path="./workspace/datasets/cifar100",
+        download=False,
+        extract=False,
+        doubledownsample=None,
+    ):
         super(CIFAR100, self).__init__()
 
-        im_transformer  = transforms.Compose([transforms.ToTensor()])
+        im_transformer = transforms.Compose([transforms.ToTensor()])
         self.D1_train_ind = torch.arange(0, 40000).int()
         self.D1_valid_ind = torch.arange(40000, 50000).int()
-        self.D1_test_ind  = torch.arange(0, 10000).int()
+        self.D1_test_ind = torch.arange(0, 10000).int()
 
         self.D2_valid_ind = torch.arange(0, 50000).int()
-        self.D2_test_ind  = torch.arange(0, 10000).int()
+        self.D2_test_ind = torch.arange(0, 10000).int()
 
-        self.ds_train   = datasets.CIFAR100(root_path,
-                                        train=True,
-                                        transform=im_transformer,
-                                        download=download)
-        self.ds_test    = datasets.CIFAR100(root_path,
-                                        train=False,
-                                        transform=im_transformer,
-                                        download=download)
+        self.ds_train = datasets.CIFAR100(
+            root_path, train=True, transform=im_transformer, download=download
+        )
+        self.ds_test = datasets.CIFAR100(
+            root_path, train=False, transform=im_transformer, download=download
+        )
 
         """
             TinyImagenet:
@@ -98,14 +130,14 @@ class CIFAR100(AbstractDomainInterface):
                  77:snail with 15:snail
                  89:tractor with 164:tractor
         """
-        self.filter_rules = {
-            'TinyImagenet': [6, 21, 24, 43, 51, 53, 61, 77, 89]
-        }                                        
-    
+        self.filter_rules = {"TinyImagenet": [6, 21, 24, 43, 51, 53, 61, 77, 89]}
+
     def get_D1_train(self):
         return SubDataset(self.name, self.ds_train, self.D1_train_ind)
+
     def get_D1_valid(self):
         return SubDataset(self.name, self.ds_train, self.D1_valid_ind, label=0)
+
     def get_D1_test(self):
         return SubDataset(self.name, self.ds_test, self.D1_test_ind, label=0)
 
@@ -113,22 +145,41 @@ class CIFAR100(AbstractDomainInterface):
         assert self.is_compatible(D1)
         target_indices = self.D2_valid_ind
         if D1.name in self.filter_rules:
-            target_indices = filter_indices(self.ds_train, target_indices, self.filter_rules[D1.name])
-        return SubDataset(self.name, self.ds_train, target_indices, label=1, transform=D1.conformity_transform())
+            target_indices = filter_indices(
+                self.ds_train, target_indices, self.filter_rules[D1.name]
+            )
+        return SubDataset(
+            self.name,
+            self.ds_train,
+            target_indices,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def get_D2_test(self, D1):
         assert self.is_compatible(D1)
         target_indices = self.D2_test_ind
         if D1.name in self.filter_rules:
-            target_indices = filter_indices(self.ds_test, target_indices, self.filter_rules[D1.name])
-        return SubDataset(self.name, self.ds_test, target_indices, label=1, transform=D1.conformity_transform())
+            target_indices = filter_indices(
+                self.ds_test, target_indices, self.filter_rules[D1.name]
+            )
+        return SubDataset(
+            self.name,
+            self.ds_test,
+            target_indices,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def conformity_transform(self):
-        return transforms.Compose([ExpandRGBChannels(),
-                                   transforms.ToPILImage(),
-                                   transforms.Resize((32, 32)),
-                                   transforms.ToTensor(),                                   
-                                   ])                               
+        return transforms.Compose(
+            [
+                ExpandRGBChannels(),
+                transforms.ToPILImage(),
+                transforms.Resize((32, 32)),
+                transforms.ToTensor(),
+            ]
+        )
 
 
 if __name__ == "__main__":
@@ -137,6 +188,7 @@ if __name__ == "__main__":
     print(len(d1_train))
 
     import matplotlib.pyplot as plt
+
     for batch_ind in range(len(d1_train)):
         print(batch_ind)
         x, y = d1_train[batch_ind]

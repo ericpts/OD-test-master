@@ -30,8 +30,12 @@ class ALIReconstruction(ReconstructionThreshold):
         print("Preparing training D1 for %s" % (dataset.name))
 
         # Initialize the multi-threaded loaders.
-        all_loader = DataLoader(dataset, batch_size=self.args.batch_size, num_workers=self.args.workers,
-                                pin_memory=True)
+        all_loader = DataLoader(
+            dataset,
+            batch_size=self.args.batch_size,
+            num_workers=self.args.workers,
+            pin_memory=True,
+        )
 
         # Set up the model
         model = Global.get_ref_ali(dataset.name)[0]().to(self.args.device)
@@ -47,9 +51,9 @@ class ALIReconstruction(ReconstructionThreshold):
         # Set up the config
         config = IterativeTrainerConfig()
 
-        config.name = '%s-ALIAE1' % (self.args.D1)
+        config.name = "%s-ALIAE1" % (self.args.D1)
         config.phases = {
-            'all': {'dataset': all_loader, 'backward': False},
+            "all": {"dataset": all_loader, "backward": False},
         }
         config.criterion = criterion
         config.classification = False
@@ -61,9 +65,12 @@ class ALIReconstruction(ReconstructionThreshold):
         config.model = model
         config.optim = None
 
-        h_path = path.join(self.args.experiment_path, '%s' % (self.__class__.__name__),
-                           '%d' % (self.default_model),
-                           '%s-%s.pth' % (self.args.D1, self.args.D2))
+        h_path = path.join(
+            self.args.experiment_path,
+            "%s" % (self.__class__.__name__),
+            "%d" % (self.default_model),
+            "%s-%s.pth" % (self.args.D1, self.args.D2),
+        )
         h_parent = path.dirname(h_path)
 
         config.logger = Logger(h_parent)
@@ -80,19 +87,24 @@ class ALIReconstruction(ReconstructionThreshold):
         else:
             config.model.netid = "MSE." + config.model.netid
 
-
-        home_path = Models.get_ref_model_path(self.args, config.model.__class__.__name__, dataset.name,
-                                              suffix_str=config.model.netid)
-        hbest_path = path.join(home_path, 'model.best.pth')
+        home_path = Models.get_ref_model_path(
+            self.args,
+            config.model.__class__.__name__,
+            dataset.name,
+            suffix_str=config.model.netid,
+        )
+        hbest_path = path.join(home_path, "model.best.pth")
         best_h_path = hbest_path
 
         # trainer = IterativeTrainer(config, self.args)
 
         if not path.isfile(best_h_path):
             raise NotImplementedError(
-                "%s not found!, Please use setup_model to pretrain the networks first!" % best_h_path)
+                "%s not found!, Please use setup_model to pretrain the networks first!"
+                % best_h_path
+            )
         else:
-            print(colored('Loading H1 model from %s' % best_h_path, 'red'))
+            print(colored("Loading H1 model from %s" % best_h_path, "red"))
             config.model.load_state_dict(torch.load(best_h_path))
 
         # trainer.run_epoch(0, phase='all')

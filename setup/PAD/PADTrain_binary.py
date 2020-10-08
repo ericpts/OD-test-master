@@ -1,10 +1,11 @@
 from __future__ import print_function
-import os,sys,inspect
+import os, sys, inspect
 from termcolor import colored
 import torch
+
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(os.path.dirname(currentdir))
-sys.path.insert(0,parentdir)
+sys.path.insert(0, parentdir)
 
 import models as Models
 import global_vars as Global
@@ -15,8 +16,11 @@ from models.classifiers import PADDense
 from datasets.PADChest import PADChestBinaryTrainSplit
 
 if __name__ == "__main__":
-    dataset = PADChestBinaryTrainSplit(root_path=os.path.join(args.root_path, "PADChest"), binary=True, downsample=224)
+    dataset = PADChestBinaryTrainSplit(
+        root_path=os.path.join(args.root_path, "PADChest"), binary=True, downsample=224
+    )
     model = PADDense(pretrained_weights_path="model.pth.tar", train_features=True)
     args.num_classes = 2
-    CLSetup.train_classifier(args, model=model, dataset=dataset.get_D1_train(), balanced=True)
-
+    CLSetup.train_classifier(
+        args, model=model, dataset=dataset.get_D1_train(), balanced=True
+    )

@@ -2,9 +2,10 @@ import numpy as np
 import re
 from tensorboardX import SummaryWriter
 
+
 class Measure:
     measurements = []
-    measure_name = ''
+    measure_name = ""
     measure_normalizer = None
     legend = None
 
@@ -46,16 +47,19 @@ class Measure:
 
     def visualize_epoch(self, visdom, epoch=-1):
         vals = self.measurements[epoch]
-        assert type(vals) == list, 'The requested epoch visualization is not a list! %s' % self.measure_name
+        assert type(vals) == list, (
+            "The requested epoch visualization is not a list! %s" % self.measure_name
+        )
 
         title = self.measure_name
         win = self.measure_name
-        X = np.arange(len(self.measurements[epoch]));
+        X = np.arange(len(self.measurements[epoch]))
         Y = np.array(self.measurements[epoch])
         if epoch == -1:
             epoch = len(self.measurements) - 1
-        visdom.line(X=X, Y=Y,
-                    opts=dict(title='Epoch %d - %s' % (epoch, title)), win=win)
+        visdom.line(
+            X=X, Y=Y, opts=dict(title="Epoch %d - %s" % (epoch, title)), win=win
+        )
 
     def visualize_all_epochs(self, visdom):
         """
@@ -63,14 +67,20 @@ class Measure:
             them all this way.
         """
         vals = self.measurements
-        assert type(vals) == list, 'The requested epoch visualization is not a list! %s' % self.measure_name
+        assert type(vals) == list, (
+            "The requested epoch visualization is not a list! %s" % self.measure_name
+        )
 
         title = self.measure_name
         win = self.measure_name
         X = np.arange(len(self.measurements))
         Y = np.array(self.measurements)
-        visdom.line(X=X, Y=Y,
-                    opts=dict(title='All Epochs - %s' % (title), legend=self.legend), win=win)
+        visdom.line(
+            X=X,
+            Y=Y,
+            opts=dict(title="All Epochs - %s" % (title), legend=self.legend),
+            win=win,
+        )
 
     def generate_average_XY(self, second_order=False):
         is_average = False
@@ -91,7 +101,9 @@ class Measure:
                     if self.measure_normalizer is None:
                         dummy_Y.append(np.nanmean(np.array(Y[i]), 0))
                     else:
-                        dummy_Y.append(np.nansum(np.array(Y[i]), 0) / self.measure_normalizer)
+                        dummy_Y.append(
+                            np.nansum(np.array(Y[i]), 0) / self.measure_normalizer
+                        )
                 if type(Y[i]) == np.ndarray:
                     if self.measure_normalizer is None:
                         dummy_Y.append(np.nanmean(Y[i], 0))
@@ -99,9 +111,9 @@ class Measure:
                         dummy_Y.append(np.nansum(Y[i], 0) / self.measure_normalizer)
                 if Y[i] is None:
                     if measure_dim > 1:
-                        dummy_Y.append([float('nan') for q in range(measure_dim)])
+                        dummy_Y.append([float("nan") for q in range(measure_dim)])
                     else:
-                        dummy_Y.append(float('nan'))
+                        dummy_Y.append(float("nan"))
                     skip = skip or (i == 0)
             Y = np.array(dummy_Y)
         else:
@@ -123,14 +135,13 @@ class Measure:
         legend = self.legend
         X, Y, is_average = self.generate_average_XY(second_order)
         if is_average:
-            title = 'Average %s' % (title)
-            win = 'ave%s' % (win)
+            title = "Average %s" % (title)
+            win = "ave%s" % (win)
             if second_order:
-                title = 'Mean %s' % (title)
-                win = 'mean%s' % (win)
+                title = "Mean %s" % (title)
+                win = "mean%s" % (win)
                 legend = None
-        visdom.line(X=X, Y=Y,
-                    opts=dict(title=title, legend=legend), win=win)
+        visdom.line(X=X, Y=Y, opts=dict(title=title, legend=legend), win=win)
 
 
 class Logger:
@@ -148,11 +159,13 @@ class Logger:
         else:
             measure = Measure(measure_name)
             self.measures[measure_name] = measure
-        #self.writer.add_scalar(measure_name, measurement, epoch)
+        # self.writer.add_scalar(measure_name, measurement, epoch)
         measure.add_measurement(measurement, epoch, iteration)
 
     def get_measure(self, measure_name):
-        assert measure_name in self.measures.keys(), 'Measure %s is not defined' % measure_name
+        assert measure_name in self.measures.keys(), (
+            "Measure %s is not defined" % measure_name
+        )
         return self.measures[measure_name]
 
     def reset_measure(self, measure_name):
@@ -179,16 +192,18 @@ class Logger:
         for measure in self.measures.values():
             measure.visualize_average(visdom)
 
-    def visualize_average_keys(self, pattern, title, visdom, is_setup=False, prefix=''):
+    def visualize_average_keys(self, pattern, title, visdom, is_setup=False, prefix=""):
         pat = re.compile(pattern)
         legend = []
         for key, measure in self.measures.items():
             if pat.match(key):
                 nX, nY, _ = measure.generate_average_XY()
-                legend.append('%s%s' % (prefix, key))
+                legend.append("%s%s" % (prefix, key))
                 if is_setup:
                     # visdom.updateTrace(X=nX, Y=nY, win=title, name='%s%s'%(prefix, key))
-                    visdom.line(X=nX, Y=nY, win=title, name='%s%s' % (prefix, key), update='new')
+                    visdom.line(
+                        X=nX, Y=nY, win=title, name="%s%s" % (prefix, key), update="new"
+                    )
                 else:
                     visdom.line(X=nX, Y=nY, win=title)
                     is_setup = True
@@ -196,32 +211,39 @@ class Logger:
             visdom.update_window_opts(win=title, opts=dict(title=title, legend=legend))
 
     def __str__(self):
-        return 'Logger with measures\n(%s)' % (', '.join(self.measures.keys()))
+        return "Logger with measures\n(%s)" % (", ".join(self.measures.keys()))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from visdom import Visdom
     import random
+
     visdom = Visdom(ipv6=False)
     logger = Logger()
 
     for epoch in range(0, 10):
         for iteration in range(0, 20):
-            logger.log('mIoU', [random.random() + epoch for c in range(5)], epoch, iteration)
-            logger.log('train_loss', random.random() + epoch / 10, epoch, iteration)
-            logger.log('test_loss', random.random() + epoch / 10 + 0.4, epoch, iteration)
+            logger.log(
+                "mIoU", [random.random() + epoch for c in range(5)], epoch, iteration
+            )
+            logger.log("train_loss", random.random() + epoch / 10, epoch, iteration)
+            logger.log(
+                "test_loss", random.random() + epoch / 10 + 0.4, epoch, iteration
+            )
 
     for epoch in range(1, 10):
         for iteration in range(0, 20):
-            logger.log('mIoU2', [random.random() + epoch for c in range(4)], epoch, iteration)
+            logger.log(
+                "mIoU2", [random.random() + epoch for c in range(4)], epoch, iteration
+            )
 
-    logger.get_measure('mIoU').legend = ['a', 'b', 'c', 'd', 'e']
+    logger.get_measure("mIoU").legend = ["a", "b", "c", "d", "e"]
 
-    logger.visualize_average('mIoU', visdom)
-    logger.visualize_average('mIoU', visdom, second_order=True)
-    logger.visualize_average('mIoU2', visdom)
+    logger.visualize_average("mIoU", visdom)
+    logger.visualize_average("mIoU", visdom, second_order=True)
+    logger.visualize_average("mIoU2", visdom)
 
-    logger.visualize_epoch('train_loss', visdom)
-    logger.visualize_average('train_loss', visdom)
-    logger.visualize_average('test_loss', visdom)
-    logger.visualize_average_keys('.*_loss', 'Average Losses', visdom)
+    logger.visualize_epoch("train_loss", visdom)
+    logger.visualize_average("train_loss", visdom)
+    logger.visualize_average("test_loss", visdom)
+    logger.visualize_average_keys(".*_loss", "Average Losses", visdom)

@@ -8,21 +8,56 @@ import csv
 import subprocess
 from PIL import Image
 
-CLASSES = ['Effusion', 'Emphysema', 'Pneumonia', 'Cardiomegaly', 'Pneumothorax', 'Mass', 'Infiltration', 'No Finding',
-           'Nodule', 'Consolidation', 'Atelectasis', 'Edema', 'Fibrosis', 'Hernia', 'Pleural_Thickening']
+CLASSES = [
+    "Effusion",
+    "Emphysema",
+    "Pneumonia",
+    "Cardiomegaly",
+    "Pneumothorax",
+    "Mass",
+    "Infiltration",
+    "No Finding",
+    "Nodule",
+    "Consolidation",
+    "Atelectasis",
+    "Edema",
+    "Fibrosis",
+    "Hernia",
+    "Pleural_Thickening",
+]
 N_CLASS = len(CLASSES)
 MAX_LENGTH = 1000000
+
+
 def to_tensor(crops):
     return torch.stack([transforms.ToTensor()(crop) for crop in crops])
 
+
 def group_normalize(crops):
-    return torch.stack([transforms.Normalize([0.485, 0.456, 0.406],
-                                      [0.229, 0.224, 0.225])(crop) for crop in crops])
+    return torch.stack(
+        [
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(crop)
+            for crop in crops
+        ]
+    )
+
 
 class NIHChestBase(data.Dataset):
-    def __init__(self, index_cache_path, source_dir, split, index_file="Data_Entry_2017.csv", image_dir="images_224",
-                 imsize=224, transforms=None, binary=False, to_rgb=False, download=False, extract=True):
-        super(NIHChestBase,self).__init__()
+    def __init__(
+        self,
+        index_cache_path,
+        source_dir,
+        split,
+        index_file="Data_Entry_2017.csv",
+        image_dir="images_224",
+        imsize=224,
+        transforms=None,
+        binary=False,
+        to_rgb=False,
+        download=False,
+        extract=True,
+    ):
+        super(NIHChestBase, self).__init__()
         self.index_cache_path = index_cache_path
         self.source_dir = source_dir
         self.split = split
@@ -33,9 +68,13 @@ class NIHChestBase(data.Dataset):
         self.binary = binary
         self.to_rgb = to_rgb
         if transforms is None:
-            self.transforms = transforms.Compose([transforms.Resize((256, 256)),
-                                              transforms.RandomCrop((imsize,imsize)),
-                                              transforms.ToTensor()])
+            self.transforms = transforms.Compose(
+                [
+                    transforms.Resize((256, 256)),
+                    transforms.RandomCrop((imsize, imsize)),
+                    transforms.ToTensor(),
+                ]
+            )
         else:
             self.transforms = transforms
         assert split in ["train", "val", "test"]
@@ -44,15 +83,19 @@ class NIHChestBase(data.Dataset):
             if not osp.exists(osp.join(self.index_cache_path, self.cache_file)):
                 self.generate_index()
             cache_file = torch.load(osp.join(self.index_cache_path, self.cache_file))
-            self.img_list = cache_file['img_list']
-            self.label_tensors = cache_file['label_tensors']
+            self.img_list = cache_file["img_list"]
+            self.label_tensors = cache_file["label_tensors"]
 
-            if not (osp.exists(osp.join(self.source_dir, 'val_split.pt'))
-                    and osp.exists(osp.join(self.source_dir, 'train_split.pt'))
-                    and osp.exists(osp.join(self.source_dir, 'test_split.pt'))):
+            if not (
+                osp.exists(osp.join(self.source_dir, "val_split.pt"))
+                and osp.exists(osp.join(self.source_dir, "train_split.pt"))
+                and osp.exists(osp.join(self.source_dir, "test_split.pt"))
+            ):
                 self.generate_split()
 
-            self.split_inds = torch.load(osp.join(self.index_cache_path, "%s_split.pt"% self.split))
+            self.split_inds = torch.load(
+                osp.join(self.index_cache_path, "%s_split.pt" % self.split)
+            )
 
     def __len__(self):
         return len(self.split_inds)
@@ -64,35 +107,36 @@ class NIHChestBase(data.Dataset):
         if self.binary:
             label = label[7]
         imp = osp.join(self.source_dir, self.image_dir, img_name)
-        with open(imp, 'rb') as f:
+        with open(imp, "rb") as f:
             with Image.open(f) as img:
                 if self.to_rgb:
-                    img = self.transforms(img.convert('RGB'))
+                    img = self.transforms(img.convert("RGB"))
                 else:
-                    img = self.transforms(img.convert('L'))
+                    img = self.transforms(img.convert("L"))
         return img, label
 
     def extract(self):
         if os.path.exists(os.path.join(self.source_dir, self.image_dir)):
             return
         import tarfile
-        tarsplits_list = ["images_01.tar.gz",
-                     "images_02.tar.gz",
-                     "images_03.tar.gz",
-                     "images_04.tar.gz",
-                     "images_05.tar.gz",
-                     "images_06.tar.gz",
-                     "images_07.tar.gz",
-                     "images_08.tar.gz",
-                     "images_09.tar.gz",
-                     "images_10.tar.gz",
-                     "images_11.tar.gz",
-                     "images_12.tar.gz",
-                     ]
+
+        tarsplits_list = [
+            "images_01.tar.gz",
+            "images_02.tar.gz",
+            "images_03.tar.gz",
+            "images_04.tar.gz",
+            "images_05.tar.gz",
+            "images_06.tar.gz",
+            "images_07.tar.gz",
+            "images_08.tar.gz",
+            "images_09.tar.gz",
+            "images_10.tar.gz",
+            "images_11.tar.gz",
+            "images_12.tar.gz",
+        ]
         for tar_split in tarsplits_list:
             with tarfile.open(os.path.join(self.source_dir, tar_split)) as tar:
                 tar.extractall(os.path.join(self.source_dir, self.image_dir))
-
 
     def generate_index(self):
         """
@@ -101,25 +145,31 @@ class NIHChestBase(data.Dataset):
         """
         img_list = []
         label_list = []
-        with open(osp.join(self.source_dir, self.index_file), 'r') as fp:
+        with open(osp.join(self.source_dir, self.index_file), "r") as fp:
             csvf = csv.DictReader(fp)
             for row in csvf:
-                imp = osp.join(self.source_dir, self.image_dir, row['Image Index'])
+                imp = osp.join(self.source_dir, self.image_dir, row["Image Index"])
                 if osp.exists(imp):
-                    img_list.append(row['Image Index'])
-                    findings = row['Finding Labels'].split('|')
+                    img_list.append(row["Image Index"])
+                    findings = row["Finding Labels"].split("|")
                     label = [1 if cond in findings else 0 for cond in CLASSES]
                     if not any(label):
                         print(findings)
                     label_list.append(label)
         label_tensors = torch.LongTensor(label_list)
         os.makedirs(self.index_cache_path, exist_ok=True)
-        torch.save({'img_list': img_list, 'label_tensors': label_tensors, 'label_list': label_list},
-                   osp.join(self.index_cache_path, self.cache_file))
+        torch.save(
+            {
+                "img_list": img_list,
+                "label_tensors": label_tensors,
+                "label_list": label_list,
+            },
+            osp.join(self.index_cache_path, self.cache_file),
+        )
         return
 
     def generate_split(self):
-        with open(osp.join(self.source_dir, 'train_val_list.txt'), 'r+') as fp:
+        with open(osp.join(self.source_dir, "train_val_list.txt"), "r+") as fp:
             lines = fp.readlines()
 
         n_trainval = len(lines)
@@ -141,15 +191,24 @@ class NIHChestBase(data.Dataset):
             except ValueError:
                 missing_val += 1
 
-        with open(osp.join(self.source_dir, 'test_list.txt'), 'r+') as fp:
+        with open(osp.join(self.source_dir, "test_list.txt"), "r+") as fp:
             lines = fp.readlines()
         for entry in lines:
             try:
                 test_inds.append(self.img_list.index(entry.strip("\n")))
             except ValueError:
                 missing_test += 1
-        print("%i, %i,and %i found in original split file; %i, %i, and %i missing" %
-              (train_num, n_trainval - train_num, len(lines), missing_train, missing_val, missing_test))
+        print(
+            "%i, %i,and %i found in original split file; %i, %i, and %i missing"
+            % (
+                train_num,
+                n_trainval - train_num,
+                len(lines),
+                missing_train,
+                missing_val,
+                missing_test,
+            )
+        )
 
         torch.save(train_inds, osp.join(self.index_cache_path, "train_split.pt"))
         torch.save(val_inds, osp.join(self.index_cache_path, "val_split.pt"))
@@ -160,9 +219,20 @@ class NIHChestBase(data.Dataset):
 class NIHChest(AbstractDomainInterface):
 
     dataset_path = "NIHCC"
-    def __init__(self, root_path="./workspace/datasets/NIHCC", leave_out_classes=(), keep_in_classes=None,
-                 binary=False, downsample=None, expand_channels=False, test_length=None, download=False,
-                 extract=True, doubledownsample=None):
+
+    def __init__(
+        self,
+        root_path="./workspace/datasets/NIHCC",
+        leave_out_classes=(),
+        keep_in_classes=None,
+        binary=False,
+        downsample=None,
+        expand_channels=False,
+        test_length=None,
+        download=False,
+        extract=True,
+        doubledownsample=None,
+    ):
         """
         :param leave_out_classes: if a sample has ANY class from this list as positive, then it is removed from indices.
         :param keep_in_classes: when specified, if a sample has None of the class from this list as positive, then it
@@ -174,40 +244,68 @@ class NIHChest(AbstractDomainInterface):
         self.keep_in_classes = keep_in_classes
         self.binary = binary
         self.downsample = downsample
-        self.expand_channels=expand_channels
+        self.expand_channels = expand_channels
         self.max_l = test_length
         cache_path = root_path
         source_path = root_path
         if doubledownsample is not None:
-            transform_list = [transforms.Resize(doubledownsample),]
+            transform_list = [
+                transforms.Resize(doubledownsample),
+            ]
         else:
             transform_list = []
         if downsample is not None:
             print("downsampling to", downsample)
-            transform = transforms.Compose(transform_list +
-                                           [transforms.Resize((downsample, downsample)),
-                                            transforms.ToTensor()])
+            transform = transforms.Compose(
+                transform_list
+                + [transforms.Resize((downsample, downsample)), transforms.ToTensor()]
+            )
             self.image_size = (downsample, downsample)
         else:
-            transform = transforms.Compose(transform_list +
-                                            [transforms.Resize((224, 224)),
-                                            transforms.ToTensor()])
+            transform = transforms.Compose(
+                transform_list + [transforms.Resize((224, 224)), transforms.ToTensor()]
+            )
             self.image_size = (224, 224)
 
-        self.ds_train = NIHChestBase(cache_path, source_path, "train", transforms=transform, binary=self.binary,
-                                     to_rgb=expand_channels, download=download, extract=extract)
-        self.ds_valid = NIHChestBase(cache_path, source_path, "val", transforms=transform, binary=self.binary,
-                                     to_rgb=expand_channels, download=download, extract=extract)
-        self.ds_test = NIHChestBase(cache_path, source_path, "test", transforms=transform, binary=self.binary,
-                                    to_rgb=expand_channels, download=download, extract=extract)
+        self.ds_train = NIHChestBase(
+            cache_path,
+            source_path,
+            "train",
+            transforms=transform,
+            binary=self.binary,
+            to_rgb=expand_channels,
+            download=download,
+            extract=extract,
+        )
+        self.ds_valid = NIHChestBase(
+            cache_path,
+            source_path,
+            "val",
+            transforms=transform,
+            binary=self.binary,
+            to_rgb=expand_channels,
+            download=download,
+            extract=extract,
+        )
+        self.ds_test = NIHChestBase(
+            cache_path,
+            source_path,
+            "test",
+            transforms=transform,
+            binary=self.binary,
+            to_rgb=expand_channels,
+            download=download,
+            extract=extract,
+        )
         if extract:
             self.D1_train_ind = self.get_filtered_inds(self.ds_train, shuffle=True)
-            self.D1_valid_ind = self.get_filtered_inds(self.ds_valid, shuffle=True, max_l=self.max_l)
+            self.D1_valid_ind = self.get_filtered_inds(
+                self.ds_valid, shuffle=True, max_l=self.max_l
+            )
             self.D1_test_ind = self.get_filtered_inds(self.ds_test, shuffle=True)
 
             self.D2_valid_ind = self.get_filtered_inds(self.ds_train, shuffle=True)
             self.D2_test_ind = self.get_filtered_inds(self.ds_test)
-
 
     def get_filtered_inds(self, basedata: NIHChestBase, shuffle=False, max_l=None):
         if not (self.leave_out_classes == () and self.keep_in_classes is None):
@@ -225,7 +323,10 @@ class NIHChest(AbstractDomainInterface):
             keep_inds = []
             for seq_ind, base_ind in enumerate(basedata.split_inds):
                 label = basedata.label_tensors[base_ind].int()
-                if torch.sum(label * leave_out_mask_label) == 0 and torch.sum(label * keep_in_mask_label) > 0:
+                if (
+                    torch.sum(label * leave_out_mask_label) == 0
+                    and torch.sum(label * keep_in_mask_label) > 0
+                ):
                     keep_inds.append(seq_ind)
                 else:
                     pass
@@ -235,56 +336,76 @@ class NIHChest(AbstractDomainInterface):
         if shuffle:
             output_inds = output_inds[torch.randperm(len(output_inds))]
         if max_l is not None:
-            if len(output_inds) >max_l:
+            if len(output_inds) > max_l:
                 output_inds = output_inds[:max_l]
         return output_inds
 
     def get_D1_train(self):
         return SubDataset(self.name, self.ds_train, self.D1_train_ind)
+
     def get_D1_valid(self):
         return SubDataset(self.name, self.ds_valid, self.D1_valid_ind, label=0)
+
     def get_D1_test(self):
         return SubDataset(self.name, self.ds_test, self.D1_test_ind, label=0)
 
     def get_D2_valid(self, D1):
         assert self.is_compatible(D1)
         target_indices = self.D2_valid_ind
-        return SubDataset(self.name, self.ds_train, target_indices, label=1, transform=D1.conformity_transform())
+        return SubDataset(
+            self.name,
+            self.ds_train,
+            target_indices,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def get_D2_test(self, D1):
         assert self.is_compatible(D1)
         target_indices = self.D2_test_ind
-        return SubDataset(self.name, self.ds_test, target_indices, label=1, transform=D1.conformity_transform())
+        return SubDataset(
+            self.name,
+            self.ds_test,
+            target_indices,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def conformity_transform(self):
         target = 224
         if self.downsample is not None:
             target = self.downsample
         if self.expand_channels:
-            return transforms.Compose([ExpandRGBChannels(),
-                                        transforms.ToPILImage(),
-                                       #transforms.Grayscale(),
-                                       transforms.Resize((target, target)),
-                                       transforms.ToTensor()
-                                       ])
+            return transforms.Compose(
+                [
+                    ExpandRGBChannels(),
+                    transforms.ToPILImage(),
+                    # transforms.Grayscale(),
+                    transforms.Resize((target, target)),
+                    transforms.ToTensor(),
+                ]
+            )
         else:
-            return transforms.Compose([
-                                       transforms.ToPILImage(),
-                                       transforms.Grayscale(),
-                                       transforms.Resize((target, target)),
-                                       transforms.ToTensor()
-                                       ])
+            return transforms.Compose(
+                [
+                    transforms.ToPILImage(),
+                    transforms.Grayscale(),
+                    transforms.Resize((target, target)),
+                    transforms.ToTensor(),
+                ]
+            )
 
 
 class NIHChestBinary(NIHChest):
     def __init__(self, *args, **kwargs):
-        kwargs.update({'binary': True})
+        kwargs.update({"binary": True})
         super(NIHChestBinary, self).__init__(*args, **kwargs)
         return
 
+
 class NIHChestBinaryTest(NIHChest):
     def __init__(self, *args, **kwargs):
-        kwargs.update({'test_length': 2000})
+        kwargs.update({"test_length": 2000})
         print(args)
         print(kwargs)
         super(NIHChestBinaryTest, self).__init__(*args, **kwargs)
@@ -293,23 +414,35 @@ class NIHChestBinaryTest(NIHChest):
 
 class NIHChestBinaryTrainSplit(NIHChest):
     def __init__(self, *args, **kwargs):
-        kwargs.update({'binary': True, 'test_length': 20000,
-                          'leave_out_classes':['Cardiomegaly', 'Pneumothorax', 'Nodule', 'Mass']})
+        kwargs.update(
+            {
+                "binary": True,
+                "test_length": 20000,
+                "leave_out_classes": ["Cardiomegaly", "Pneumothorax", "Nodule", "Mass"],
+            }
+        )
         super(NIHChestBinaryTrainSplit, self).__init__(*args, **kwargs)
 
 
 class NIHChestBinaryValSplit(NIHChest):
     def __init__(self, *args, **kwargs):
-        kwargs.update({'binary': True, 'test_length': 5000,
-                       'keep_in_classes': ['Cardiomegaly',]})
+        kwargs.update(
+            {"binary": True, "test_length": 5000, "keep_in_classes": ["Cardiomegaly",]}
+        )
         super(NIHChestBinaryValSplit, self).__init__(*args, **kwargs)
 
 
 class NIHChestBinaryTestSplit(NIHChest):
     def __init__(self, *args, **kwargs):
-        kwargs.update({'binary': True, 'test_length': 5000,
-                       'keep_in_classes': ['Pneumothorax', 'Nodule', 'Mass']})
+        kwargs.update(
+            {
+                "binary": True,
+                "test_length": 5000,
+                "keep_in_classes": ["Pneumothorax", "Nodule", "Mass"],
+            }
+        )
         super(NIHChestBinaryTestSplit, self).__init__(*args, **kwargs)
+
 
 if __name__ == "__main__":
     dataset = NIHChest()
@@ -317,6 +450,7 @@ if __name__ == "__main__":
     print(len(d1_train))
     loader = data.DataLoader(d1_train, batch_size=1, shuffle=True)
     import matplotlib.pyplot as plt
+
     for batch, batch_ind in zip(loader, range(10)):
         print(batch_ind)
         x, y = batch
@@ -330,20 +464,20 @@ if __name__ == "__main__":
         x, y = batch
         plt.imshow(x.numpy().reshape(dataset.image_size))
 
-    Noeffusion = NIHChest(leave_out_classes=['Effusion'])
+    Noeffusion = NIHChest(leave_out_classes=["Effusion"])
     d1_train = Noeffusion.get_D1_train()
     print(len(d1_train))
     loader = data.DataLoader(d1_train, batch_size=1, shuffle=True)
     for batch, batch_ind in zip(loader, range(100)):
         x, y = batch
-        #print(y)
+        # print(y)
         pr_str = ""
         for i, cla in enumerate(CLASSES):
             if y[0][i] == 1:
                 pr_str += cla + "|"
         print(pr_str)
 
-    Keepeffusion = NIHChest(keep_in_classes=['Effusion'])
+    Keepeffusion = NIHChest(keep_in_classes=["Effusion"])
     d1_train = Keepeffusion.get_D1_train()
     print(len(d1_train))
     loader = data.DataLoader(d1_train, batch_size=1, shuffle=True)
@@ -356,7 +490,9 @@ if __name__ == "__main__":
                 pr_str += cla + "|"
         print(pr_str)
 
-    NoFibrosisKeepEdemaEffusion = NIHChest(leave_out_classes=['Fibrosis'], keep_in_classes=['Edema', 'Effusion'])
+    NoFibrosisKeepEdemaEffusion = NIHChest(
+        leave_out_classes=["Fibrosis"], keep_in_classes=["Edema", "Effusion"]
+    )
     d1_train = NoFibrosisKeepEdemaEffusion.get_D1_train()
     print(len(d1_train))
     loader = data.DataLoader(d1_train, batch_size=1, shuffle=True)

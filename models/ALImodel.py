@@ -35,7 +35,7 @@ class ALIModel(nn.Module):
         DxzStride = [1, 1, 1]
         DxzDepth = [1024, 1024, 1]
 
-        if dims[2]==64:
+        if dims[2] == 64:
             # Encoder param
             EncKernel = [2, 7, 5, 7, 4, 1]
             EncStride = [1, 2, 2, 2, 1, 1]
@@ -90,11 +90,19 @@ class ALIModel(nn.Module):
         self.LS = n_hidden
         # Create Model
         self.DisX = DiscriminatorX(KS=DxKernel, ST=DxStride, DP=DxDepth, nc=dims[0])
-        self.DisZ = DiscriminatorZ(KS=DzKernel, ST=DzStride, DP=DzDepth, LS=self.LS, nc=dims[0])
-        self.DisXZ = DiscriminatorXZ(KS=DxzKernel, ST=DxzStride, DP=DxzDepth, nc=dims[0])
-        self.GenZ = Encoder(KS=EncKernel, ST=EncStride, DP=EncDepth, LS=self.LS, nc=dims[0])
-        self.GenX = Generator(latent_size=self.LS, KS=GenKernel, ST=GenStride, DP=GenDepth, nc=dims[0])
-        self.netid = 'Exp_%d_%d'%(dims[2], self.LS)
+        self.DisZ = DiscriminatorZ(
+            KS=DzKernel, ST=DzStride, DP=DzDepth, LS=self.LS, nc=dims[0]
+        )
+        self.DisXZ = DiscriminatorXZ(
+            KS=DxzKernel, ST=DxzStride, DP=DxzDepth, nc=dims[0]
+        )
+        self.GenZ = Encoder(
+            KS=EncKernel, ST=EncStride, DP=EncDepth, LS=self.LS, nc=dims[0]
+        )
+        self.GenX = Generator(
+            latent_size=self.LS, KS=GenKernel, ST=GenStride, DP=GenDepth, nc=dims[0]
+        )
+        self.netid = "Exp_%d_%d" % (dims[2], self.LS)
 
     def encode(self, x):
         return self.GenZ(x)
@@ -124,161 +132,201 @@ class ALIModel(nn.Module):
         elif x is not None and z is not None:
             gen_x = self.generate(z)
             gen_z = self.encode(x)
-            p_real = self.DisXZ(torch.cat((self.DisZ(gen_z), self.DisX(x)),1))
+            p_real = self.DisXZ(torch.cat((self.DisZ(gen_z), self.DisX(x)), 1))
             p_fake = self.DisXZ(torch.cat((self.DisZ(z), self.DisX(gen_x)), 1))
             return p_real, p_fake
         else:
             return self.sample(1)
 
 
-#Generator model (Gx(z))
+# Generator model (Gx(z))
 class Generator(nn.Module):
-    def __init__(self, latent_size=32, output_shape=224, nc=1, KS=(4,221), ST =(1,1), DP=(1,1)):
+    def __init__(
+        self, latent_size=32, output_shape=224, nc=1, KS=(4, 221), ST=(1, 1), DP=(1, 1)
+    ):
         self.latent_size = latent_size
         self.output_shape = output_shape
         self.nc = nc
-        
+
         super(Generator, self).__init__()
-        
-        #Build ConvTranspose layer
+
+        # Build ConvTranspose layer
         self.main = torch.nn.Sequential()
         lastdepth = self.latent_size
         OldDim = 1
         for i in range(len(KS)):
-            #Depth
+            # Depth
             nnc = DP[i]
-            #Kernel Size
+            # Kernel Size
             kernel_size = KS[i]
-            #Stride
+            # Stride
             stride = ST[i]
-            
-            #Default value
+
+            # Default value
             padding = 0
             output_pading = 0
-            
-            if i == len(KS)-1:
+
+            if i == len(KS) - 1:
                 nnc = self.nc
-                
-            #Add ConvTranspose
-            self.main.add_module("ConvT_"+str(i), torch.nn.ConvTranspose2d(lastdepth,nnc,kernel_size,stride,padding,output_pading,bias=False))
-            
-            #Some regurlarisation
+
+            # Add ConvTranspose
+            self.main.add_module(
+                "ConvT_" + str(i),
+                torch.nn.ConvTranspose2d(
+                    lastdepth,
+                    nnc,
+                    kernel_size,
+                    stride,
+                    padding,
+                    output_pading,
+                    bias=False,
+                ),
+            )
+
+            # Some regurlarisation
             if i != len(KS) - 1:
-                self.main.add_module("Relu_"+str(i), torch.nn.ReLU(True))
-                self.main.add_module("BN_"+str(i), torch.nn.BatchNorm2d(nnc))            
-            #OldDimension (for information)
-            OldDim = (OldDim-1)*stride+kernel_size - 2*padding + output_pading
-            
-            #Last depth (to pass to next ConvT layer)
+                self.main.add_module("Relu_" + str(i), torch.nn.ReLU(True))
+                self.main.add_module("BN_" + str(i), torch.nn.BatchNorm2d(nnc))
+            # OldDimension (for information)
+            OldDim = (OldDim - 1) * stride + kernel_size - 2 * padding + output_pading
+
+            # Last depth (to pass to next ConvT layer)
             lastdepth = nnc
-            #print("I=%d K=%d ST=%d Size=%d" % (i,kernel_size,stride,OldDim))
-        #self.main.add_module("Sigmoid",nn.Sigmoid())
-        self.main.add_module("Tanh",nn.Tanh()) #Apparently Tanh is better than Sigmoid
-       
+            # print("I=%d K=%d ST=%d Size=%d" % (i,kernel_size,stride,OldDim))
+        # self.main.add_module("Sigmoid",nn.Sigmoid())
+        self.main.add_module(
+            "Tanh", nn.Tanh()
+        )  # Apparently Tanh is better than Sigmoid
+
     def forward(self, input):
         return self.main(input)
 
 
-#Image Encoder network to latent space (Gz(x))
+# Image Encoder network to latent space (Gz(x))
 class Encoder(nn.Module):
-    def __init__(self,KS,ST,DP,LS, nc):
+    def __init__(self, KS, ST, DP, LS, nc):
         super(Encoder, self).__init__()
-        
-        
-        #Sequential model        
+
+        # Sequential model
         self.main = torch.nn.Sequential()
-        lastdepth = nc #This is the number of color (1)
+        lastdepth = nc  # This is the number of color (1)
         nnc = 1
         for i in range(len(KS)):
-            
-            #Kernel, Stride and Depth from param
+
+            # Kernel, Stride and Depth from param
             kernel_size = KS[i]
             stride = ST[i]
             nnc = DP[i]
-            
-            #No padding!
+
+            # No padding!
             padding = 0
             output_pading = 0
-            
-            #Conv layer
-            self.main.add_module("Conv_"+str(i), 
-                                 torch.nn.Conv2d(in_channels=lastdepth,out_channels=nnc,
-                                                 kernel_size=kernel_size,stride=stride,bias=False))
-           
-           #Some regul
+
+            # Conv layer
+            self.main.add_module(
+                "Conv_" + str(i),
+                torch.nn.Conv2d(
+                    in_channels=lastdepth,
+                    out_channels=nnc,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    bias=False,
+                ),
+            )
+
+            # Some regul
             if i != len(KS) - 1:
-                self.main.add_module("LRelu_"+str(i), torch.nn.LeakyReLU(0.1, inplace=True))
-                self.main.add_module("BN_"+str(i), torch.nn.BatchNorm2d(nnc))
+                self.main.add_module(
+                    "LRelu_" + str(i), torch.nn.LeakyReLU(0.1, inplace=True)
+                )
+                self.main.add_module("BN_" + str(i), torch.nn.BatchNorm2d(nnc))
             lastdepth = nnc
 
     def forward(self, input):
         return self.main(input)
 
 
-#Discriminator X (Take an image and discriminate it) Dx(x)
+# Discriminator X (Take an image and discriminate it) Dx(x)
 class DiscriminatorX(nn.Module):
-    def __init__(self,KS,ST,DP, nc):
+    def __init__(self, KS, ST, DP, nc):
         super(DiscriminatorX, self).__init__()
-        
+
         self.main = torch.nn.Sequential()
         lastdepth = nc
         nnc = 1
-        dp =0.5 #Dropout rate is 0.5 for first
+        dp = 0.5  # Dropout rate is 0.5 for first
         for i in range(len(KS)):
-        
-            #Kernel, Stride and Depth from param
+
+            # Kernel, Stride and Depth from param
             kernel_size = KS[i]
             stride = ST[i]
             nnc = DP[i]
-            
-            #No padding
+
+            # No padding
             padding = 0
             output_pading = 0
-            
-            self.main.add_module("Conv_"+str(i), 
-                                 torch.nn.Conv2d(in_channels=lastdepth,out_channels=nnc,
-                                                 kernel_size=kernel_size,stride=stride,bias=False))
-            #Some regularization
+
+            self.main.add_module(
+                "Conv_" + str(i),
+                torch.nn.Conv2d(
+                    in_channels=lastdepth,
+                    out_channels=nnc,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    bias=False,
+                ),
+            )
+            # Some regularization
             if i != len(KS) - 1:
-                self.main.add_module("LRelu_"+str(i), torch.nn.LeakyReLU(0.1, inplace=True))
-                self.main.add_module("DropOut_"+str(i), torch.nn.Dropout(dp))
-            
+                self.main.add_module(
+                    "LRelu_" + str(i), torch.nn.LeakyReLU(0.1, inplace=True)
+                )
+                self.main.add_module("DropOut_" + str(i), torch.nn.Dropout(dp))
+
             lastdepth = nnc
-            dp = 0.2 #New dropout rate
-       
+            dp = 0.2  # New dropout rate
 
     def forward(self, input):
         return self.main(input)
 
-    
-#Discriminator for Latent Space (Dz(z))
+
+# Discriminator for Latent Space (Dz(z))
 class DiscriminatorZ(nn.Module):
-    def __init__(self,KS,ST,DP,LS, nc):
+    def __init__(self, KS, ST, DP, LS, nc):
         super(DiscriminatorZ, self).__init__()
-        
+
         self.main = torch.nn.Sequential()
         lastdepth = LS
         nnc = 1
         dp = 0.5
         for i in range(len(KS)):
-            
-            #Kernel, Stride and Depth from param
+
+            # Kernel, Stride and Depth from param
             kernel_size = KS[i]
             stride = ST[i]
             nnc = DP[i]
-            
-            #No padding!
+
+            # No padding!
             padding = 0
             output_pading = 0
-            
-            #Conv
-            self.main.add_module("Conv_"+str(i), 
-                                 torch.nn.Conv2d(in_channels=lastdepth,out_channels=nnc,
-                                                 kernel_size=kernel_size,stride=stride,bias=False))
-           
+
+            # Conv
+            self.main.add_module(
+                "Conv_" + str(i),
+                torch.nn.Conv2d(
+                    in_channels=lastdepth,
+                    out_channels=nnc,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    bias=False,
+                ),
+            )
+
             if i != len(KS) - 1:
-                self.main.add_module("LRelu_"+str(i), torch.nn.LeakyReLU(0.1, inplace=True))
-                self.main.add_module("DropOut_"+str(i), torch.nn.Dropout(dp))            
+                self.main.add_module(
+                    "LRelu_" + str(i), torch.nn.LeakyReLU(0.1, inplace=True)
+                )
+                self.main.add_module("DropOut_" + str(i), torch.nn.Dropout(dp))
             lastdepth = nnc
             dp = 0.2
 
@@ -287,36 +335,42 @@ class DiscriminatorZ(nn.Module):
 
 
 class DiscriminatorXZ(nn.Module):
-    def __init__(self,KS,ST,DP, nc):
+    def __init__(self, KS, ST, DP, nc):
         super(DiscriminatorXZ, self).__init__()
-        
+
         self.main = torch.nn.Sequential()
         lastdepth = 1024
         nnc = 1
         dp = 0.5
         for i in range(len(KS)):
-            
+
             kernel_size = KS[i]
             stride = ST[i]
             nnc = DP[i]
-            
+
             padding = 0
             output_pading = 0
-            
-            self.main.add_module("Conv_"+str(i), 
-                                 torch.nn.Conv2d(in_channels=lastdepth,out_channels=nnc,
-                                                 kernel_size=kernel_size,stride=stride,bias=False))
-            
-            
+
+            self.main.add_module(
+                "Conv_" + str(i),
+                torch.nn.Conv2d(
+                    in_channels=lastdepth,
+                    out_channels=nnc,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    bias=False,
+                ),
+            )
+
             if i != len(KS) - 1:
-                self.main.add_module("LRelu_"+str(i), torch.nn.LeakyReLU(0.1, inplace=True))
-                self.main.add_module("DropOut_"+str(i), torch.nn.Dropout(dp))
+                self.main.add_module(
+                    "LRelu_" + str(i), torch.nn.LeakyReLU(0.1, inplace=True)
+                )
+                self.main.add_module("DropOut_" + str(i), torch.nn.Dropout(dp))
 
             lastdepth = nnc
             dp = 0.2
         self.main.add_module("Sigmoid", torch.nn.Sigmoid())
-           
-       
 
     def forward(self, input):
         return self.main(input)
@@ -324,21 +378,45 @@ class DiscriminatorXZ(nn.Module):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+
     load_path = "D:\\Documents\\GitHub\\OD-test-master\\methods\\ALI\\model\\Exp_64_512_0.00001_RandomLabel_4.0\\models"
     model = ALIModel((1, 64, 64), n_hidden=512)
-    model.GenX.load_state_dict(torch.load(os.path.join(load_path, "Exp_64_512_0.00001_RandomLabel_4.0_GenX_It_2121000.pth")))
+    model.GenX.load_state_dict(
+        torch.load(
+            os.path.join(
+                load_path, "Exp_64_512_0.00001_RandomLabel_4.0_GenX_It_2121000.pth"
+            )
+        )
+    )
     model.GenZ.load_state_dict(
-        torch.load(os.path.join(load_path, "Exp_64_512_0.00001_RandomLabel_4.0_GenZ_It_2121000.pth")))
+        torch.load(
+            os.path.join(
+                load_path, "Exp_64_512_0.00001_RandomLabel_4.0_GenZ_It_2121000.pth"
+            )
+        )
+    )
     model.DisX.load_state_dict(
-        torch.load(os.path.join(load_path, "Exp_64_512_0.00001_RandomLabel_4.0_DisX_It_2121000.pth")))
+        torch.load(
+            os.path.join(
+                load_path, "Exp_64_512_0.00001_RandomLabel_4.0_DisX_It_2121000.pth"
+            )
+        )
+    )
     model.DisZ.load_state_dict(
-        torch.load(os.path.join(load_path, "Exp_64_512_0.00001_RandomLabel_4.0_DisZ_It_2121000.pth")))
+        torch.load(
+            os.path.join(
+                load_path, "Exp_64_512_0.00001_RandomLabel_4.0_DisZ_It_2121000.pth"
+            )
+        )
+    )
     model.DisXZ.load_state_dict(
-        torch.load(os.path.join(load_path, "Exp_64_512_0.00001_RandomLabel_4.0_DisXZ_It_2121000.pth")))
-    #for i in range(10):
+        torch.load(
+            os.path.join(
+                load_path, "Exp_64_512_0.00001_RandomLabel_4.0_DisXZ_It_2121000.pth"
+            )
+        )
+    )
+    # for i in range(10):
     #    sample = model.sample(n=1)
     #    plt.imshow(sample.cpu().squeeze().data.numpy())
     torch.save(model.state_dict(), os.path.join(load_path, "model.best.pth"))
-
-
-

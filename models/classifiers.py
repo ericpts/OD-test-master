@@ -9,13 +9,14 @@ import torchvision.models.densenet as Densenet
 
 class PartialForwardable(object):
     def partial_forward(self, x):
-        if hasattr(self, 'densenet121'):
+        if hasattr(self, "densenet121"):
             features = self.densenet121.features(x)
             out = F.relu(features, inplace=True)
             out = F.avg_pool2d(out, kernel_size=7, stride=1).view(features.size(0), -1)
             return out
-        elif hasattr(self, 'model'):
+        elif hasattr(self, "model"):
             return self.model.features(x).view(x.size(0), 1)
+
 
 class MNIST_VGG(nn.Module):
     """
@@ -26,7 +27,7 @@ class MNIST_VGG(nn.Module):
         layers = []
         in_channels = 1
         for v in cfg:
-            if v == 'M':
+            if v == "M":
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
             else:
                 conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
@@ -45,34 +46,48 @@ class MNIST_VGG(nn.Module):
         self.multiplier = 4.42477
 
         # Reduced VGG16.
-        self.cfg = [64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M']
-        self.model = VGG.VGG(self.make_layers(self.cfg, batch_norm=True), num_classes=10)
+        self.cfg = [64, "M", 128, 128, "M", 256, 256, "M", 512, 512, "M"]
+        self.model = VGG.VGG(
+            self.make_layers(self.cfg, batch_norm=True), num_classes=10
+        )
         # MNIST would have a different sized feature map.
         self.model.classifier = nn.Sequential(
-            nn.Linear(512 * 1 * 1, 256), nn.ReLU(True), nn.Dropout(),
-            nn.Linear(256, 256), nn.ReLU(True), nn.Dropout(),
+            nn.Linear(512 * 1 * 1, 256),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(256, 256),
+            nn.ReLU(True),
+            nn.Dropout(),
             nn.Linear(256, 10),
         )
         self.model._initialize_weights()
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
             output = F.log_softmax(output, dim=1)
         return output
-    
+
     def output_size(self):
         return torch.LongTensor([1, 10])
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 60
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 60
         return config
+
 
 class MNIST_Resnet(nn.Module):
     """
@@ -80,6 +95,7 @@ class MNIST_Resnet(nn.Module):
         We replace the average pooling block to accomodate
         the requirements of MNIST.
     """
+
     def __init__(self):
         super(MNIST_Resnet, self).__init__()
 
@@ -91,15 +107,17 @@ class MNIST_Resnet(nn.Module):
         self.model = Resnet.ResNet(Resnet.Bottleneck, [2, 3, 5, 2], num_classes=10)
 
         # MNIST would have a different sized feature map.
-        self.model.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.model.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # The first part also needs to be fixed.
-        self.model.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False) # Replace the harsh convolution.
+        self.model.conv1 = nn.Conv2d(
+            1, 64, kernel_size=3, stride=1, padding=1, bias=False
+        )  # Replace the harsh convolution.
         del self.model.maxpool
-        self.model.maxpool = lambda x: x # Remove the early maxpool.
+        self.model.maxpool = lambda x: x  # Remove the early maxpool.
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
@@ -111,10 +129,18 @@ class MNIST_Resnet(nn.Module):
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 60
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 60
         return config
+
 
 class CIFAR10_VGG(nn.Module):
     """
@@ -122,6 +148,7 @@ class CIFAR10_VGG(nn.Module):
         We replace the classifier block to accomodate
         the requirements of CIFAR.
     """
+
     def __init__(self):
         super(CIFAR10_VGG, self).__init__()
 
@@ -130,19 +157,41 @@ class CIFAR10_VGG(nn.Module):
         self.multiplier = 4.42477
 
         # VGG16 minus last maxpool.
-        self.cfg = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512]
+        self.cfg = [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            256,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+            512,
+            512,
+            512,
+        ]
         self.model = VGG.VGG(VGG.make_layers(self.cfg, batch_norm=True), num_classes=10)
         # Cifar 10 would have a different sized feature map.
         self.model.classifier = nn.Sequential(
-            nn.Linear(512 * 2 * 2, 4096), nn.ReLU(True), nn.Dropout(),
-            nn.Linear(4096, 4096), nn.ReLU(True), nn.Dropout(),
+            nn.Linear(512 * 2 * 2, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(4096, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
             nn.Linear(4096, 10),
         )
         self.model._initialize_weights()
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
@@ -154,17 +203,26 @@ class CIFAR10_VGG(nn.Module):
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 60
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 60
         return config
-        
+
+
 class CIFAR10_Resnet(nn.Module):
     """
         CIFAR_Resnet is based on Resnet50
         We replace the average pooling block to accomodate
         the requirements of CIFAR.
     """
+
     def __init__(self):
         super(CIFAR10_Resnet, self).__init__()
 
@@ -176,15 +234,17 @@ class CIFAR10_Resnet(nn.Module):
         self.model = Resnet.ResNet(Resnet.Bottleneck, [3, 4, 6, 3], num_classes=10)
 
         # Cifar 10 would have a different sized feature map.
-        self.model.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.model.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # The first part also needs to be fixed.
-        self.model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False) # Replace the harsh convolution.
+        self.model.conv1 = nn.Conv2d(
+            3, 64, kernel_size=3, stride=1, padding=1, bias=False
+        )  # Replace the harsh convolution.
         del self.model.maxpool
-        self.model.maxpool = lambda x: x # Remove the early maxpool.
+        self.model.maxpool = lambda x: x  # Remove the early maxpool.
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
@@ -196,17 +256,26 @@ class CIFAR10_Resnet(nn.Module):
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 60
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 60
         return config
-        
+
+
 class CIFAR100_VGG(nn.Module):
     """
         CIFAR_VGG is based on VGG16+BatchNorm
         We replace the classifier block to accomodate
         the requirements of CIFAR.
     """
+
     def __init__(self):
         super(CIFAR100_VGG, self).__init__()
 
@@ -215,19 +284,43 @@ class CIFAR100_VGG(nn.Module):
         self.multiplier = 4.42477
 
         # VGG16 minus last maxpool.
-        self.cfg = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512]
-        self.model = VGG.VGG(VGG.make_layers(self.cfg, batch_norm=True), num_classes=100)
+        self.cfg = [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            256,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+            512,
+            512,
+            512,
+        ]
+        self.model = VGG.VGG(
+            VGG.make_layers(self.cfg, batch_norm=True), num_classes=100
+        )
         # Cifar 10 would have a different sized feature map.
         self.model.classifier = nn.Sequential(
-            nn.Linear(512 * 2 * 2, 4096), nn.ReLU(True), nn.Dropout(),
-            nn.Linear(4096, 4096), nn.ReLU(True), nn.Dropout(),
+            nn.Linear(512 * 2 * 2, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(4096, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
             nn.Linear(4096, 100),
         )
         self.model._initialize_weights()
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
@@ -239,17 +332,26 @@ class CIFAR100_VGG(nn.Module):
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 120
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 120
         return config
-        
+
+
 class CIFAR100_Resnet(nn.Module):
     """
         CIFAR_Resnet is based on Resnet50
         We replace the average pooling block to accomodate
         the requirements of CIFAR.
     """
+
     def __init__(self):
         super(CIFAR100_Resnet, self).__init__()
 
@@ -261,15 +363,17 @@ class CIFAR100_Resnet(nn.Module):
         self.model = Resnet.ResNet(Resnet.Bottleneck, [3, 4, 6, 3], num_classes=100)
 
         # Cifar 100 would have a different sized feature map.
-        self.model.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.model.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # The first part also needs to be fixed.
-        self.model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False) # Replace the harsh convolution.
+        self.model.conv1 = nn.Conv2d(
+            3, 64, kernel_size=3, stride=1, padding=1, bias=False
+        )  # Replace the harsh convolution.
         del self.model.maxpool
-        self.model.maxpool = lambda x: x # Remove the early maxpool.
+        self.model.maxpool = lambda x: x  # Remove the early maxpool.
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
@@ -278,13 +382,21 @@ class CIFAR100_Resnet(nn.Module):
 
     def output_size(self):
         return torch.LongTensor([1, 100])
-        
+
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 120
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 120
         return config
+
 
 class STL10_VGG(nn.Module):
     """
@@ -292,6 +404,7 @@ class STL10_VGG(nn.Module):
         We replace the classifier block to accomodate
         the requirements of STL10.
     """
+
     def __init__(self):
         super(STL10_VGG, self).__init__()
 
@@ -300,19 +413,42 @@ class STL10_VGG(nn.Module):
         self.multiplier = 4.42477
 
         # VGG16.
-        self.cfg = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M']
+        self.cfg = [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            256,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+        ]
         self.model = VGG.VGG(VGG.make_layers(self.cfg, batch_norm=True), num_classes=10)
         # Cifar 10 would have a different sized feature map.
         self.model.classifier = nn.Sequential(
-            nn.Linear(512 * 3 * 3, 4096), nn.ReLU(True), nn.Dropout(),
-            nn.Linear(4096, 4096), nn.ReLU(True), nn.Dropout(),
+            nn.Linear(512 * 3 * 3, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(4096, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
             nn.Linear(4096, 10),
         )
         self.model._initialize_weights()
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
@@ -324,10 +460,18 @@ class STL10_VGG(nn.Module):
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 120
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 120
         return config
+
 
 class STL10_Resnet(nn.Module):
     """
@@ -335,6 +479,7 @@ class STL10_Resnet(nn.Module):
         We replace the average pooling block to accomodate
         the requirements of STL10.
     """
+
     def __init__(self):
         super(STL10_Resnet, self).__init__()
 
@@ -346,15 +491,17 @@ class STL10_Resnet(nn.Module):
         self.model = Resnet.ResNet(Resnet.Bottleneck, [3, 4, 6, 3], num_classes=10)
 
         # STL10 would have a different sized feature map.
-        self.model.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.model.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # The first part also needs to be fixed.
-        self.model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1, bias=False) # Replace the harsh convolution.
+        self.model.conv1 = nn.Conv2d(
+            3, 64, kernel_size=3, stride=2, padding=1, bias=False
+        )  # Replace the harsh convolution.
         del self.model.maxpool
-        self.model.maxpool = lambda x: x # Remove the early maxpool.
+        self.model.maxpool = lambda x: x  # Remove the early maxpool.
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
@@ -366,10 +513,18 @@ class STL10_Resnet(nn.Module):
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 120
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 120
         return config
+
 
 class TinyImagenet_VGG(nn.Module):
     """
@@ -377,6 +532,7 @@ class TinyImagenet_VGG(nn.Module):
         We replace the classifier block to accomodate
         the requirements of TinyImagenet.
     """
+
     def __init__(self):
         super(TinyImagenet_VGG, self).__init__()
 
@@ -384,19 +540,44 @@ class TinyImagenet_VGG(nn.Module):
         self.offset = 0.44900
         self.multiplier = 4.42477
 
-        self.cfg = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M']
-        self.model = VGG.VGG(VGG.make_layers(self.cfg, batch_norm=True), num_classes=200)
+        self.cfg = [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            256,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+        ]
+        self.model = VGG.VGG(
+            VGG.make_layers(self.cfg, batch_norm=True), num_classes=200
+        )
         # TinyImagenet would have a different sized feature map.
         self.model.classifier = nn.Sequential(
-            nn.Linear(512 * 2 * 2, 4096), nn.ReLU(True), nn.Dropout(),
-            nn.Linear(4096, 4096), nn.ReLU(True), nn.Dropout(),
+            nn.Linear(512 * 2 * 2, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(4096, 4096),
+            nn.ReLU(True),
+            nn.Dropout(),
             nn.Linear(4096, 200),
         )
         self.model._initialize_weights()
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
@@ -408,10 +589,18 @@ class TinyImagenet_VGG(nn.Module):
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 120
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 120
         return config
+
 
 class TinyImagenet_Resnet(nn.Module):
     """
@@ -419,6 +608,7 @@ class TinyImagenet_Resnet(nn.Module):
         We replace the average pooling block to accomodate
         the requirements of TinyImagenet.
     """
+
     def __init__(self):
         super(TinyImagenet_Resnet, self).__init__()
 
@@ -430,15 +620,17 @@ class TinyImagenet_Resnet(nn.Module):
         self.model = Resnet.ResNet(Resnet.Bottleneck, [3, 4, 6, 3], num_classes=200)
 
         # TinyImagenet would have a different sized feature map.
-        self.model.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.model.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # The first part also needs to be fixed.
-        self.model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False) # Replace the harsh convolution.
+        self.model.conv1 = nn.Conv2d(
+            3, 64, kernel_size=3, stride=1, padding=1, bias=False
+        )  # Replace the harsh convolution.
         # del self.model.maxpool
         # self.model.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
     def forward(self, x, softmax=True):
         # Perform late normalization.
-        x = (x-self.offset)*self.multiplier
+        x = (x - self.offset) * self.multiplier
 
         output = self.model(x)
         if softmax:
@@ -450,9 +642,16 @@ class TinyImagenet_Resnet(nn.Module):
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 120
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 120
         return config
 
 
@@ -460,7 +659,7 @@ class NIHDense(nn.Module, PartialForwardable):
     def __init__(self):
         super(NIHDense, self).__init__()
         self.densenet121 = Densenet.densenet121(pretrained=True)
-        #TODO: ChestXNet specific implementation params (substitute for kLog)
+        # TODO: ChestXNet specific implementation params (substitute for kLog)
 
     def forward(self, x, softmax=True):
         output = self.densenet121(x)
@@ -475,10 +674,16 @@ class NIHDense(nn.Module, PartialForwardable):
     def train_config(self):
         config = {}
         # TODO: chestXnet suitable arguments
-        config['optim'] = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2,
-                                                                   min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 120
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 120
         return config
 
 
@@ -487,26 +692,38 @@ class NIHDenseBinary(nn.Module, PartialForwardable):
         super(NIHDenseBinary, self).__init__()
         self.train_features = train_features
         self.densenet121 = Densenet.densenet121(pretrained=False)
-        self.densenet121.features[0] = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        self.densenet121.features[0] = nn.Conv2d(
+            1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
+        )
         if pretrained_weights_path is not None:
             print("NIHDenseBinary loading weights from ", pretrained_weights_path)
             state_dict = torch.load(pretrained_weights_path)
-            keys = state_dict['state_dict'].copy().keys()
+            keys = state_dict["state_dict"].copy().keys()
             for key in keys:
                 if "norm.1" in key:
-                    state_dict['state_dict'][key[7:].replace("norm.1", "norm1")] = state_dict['state_dict'].pop(key)
+                    state_dict["state_dict"][
+                        key[7:].replace("norm.1", "norm1")
+                    ] = state_dict["state_dict"].pop(key)
                 elif "norm.2" in key:
-                    state_dict['state_dict'][key[7:].replace("norm.2", "norm2")] = state_dict['state_dict'].pop(key)
+                    state_dict["state_dict"][
+                        key[7:].replace("norm.2", "norm2")
+                    ] = state_dict["state_dict"].pop(key)
                 elif "conv.1" in key:
-                    state_dict['state_dict'][key[7:].replace("conv.1", "conv1")] = state_dict['state_dict'].pop(key)
+                    state_dict["state_dict"][
+                        key[7:].replace("conv.1", "conv1")
+                    ] = state_dict["state_dict"].pop(key)
                 elif "conv.2" in key:
-                    state_dict['state_dict'][key[7:].replace("conv.2", "conv2")] = state_dict['state_dict'].pop(key)
+                    state_dict["state_dict"][
+                        key[7:].replace("conv.2", "conv2")
+                    ] = state_dict["state_dict"].pop(key)
                 else:
-                    state_dict['state_dict'][key[7:]] = state_dict['state_dict'].pop(key)
+                    state_dict["state_dict"][key[7:]] = state_dict["state_dict"].pop(
+                        key
+                    )
 
-            self.load_state_dict(state_dict['state_dict'], strict=False)
+            self.load_state_dict(state_dict["state_dict"], strict=False)
         feature_dim = self.densenet121.classifier.in_features
-        self.densenet121.classifier =nn.Linear(feature_dim, 2)
+        self.densenet121.classifier = nn.Linear(feature_dim, 2)
 
     def forward(self, x, softmax=True):
         output = self.densenet121(x)
@@ -516,18 +733,24 @@ class NIHDenseBinary(nn.Module, PartialForwardable):
             return output
 
     def output_size(self):
-        return torch.LongTensor([1,2])
+        return torch.LongTensor([1, 2])
 
     def train_config(self):
         config = {}
         if self.train_features:
-            config['optim'] = optim.Adam(
-                [{'params':self.densenet121.classifier.parameters(), 'lr':1e-1}, {'params':self.densenet121.features.parameters()}],
-                lr=1e-1)
+            config["optim"] = optim.Adam(
+                [
+                    {"params": self.densenet121.classifier.parameters(), "lr": 1e-1},
+                    {"params": self.densenet121.features.parameters()},
+                ],
+                lr=1e-1,
+            )
         else:
-            config['optim'] = optim.Adam(self.densenet121.classifier.parameters(), lr=1e-1, )
-        config['scheduler'] = optim.lr_scheduler.StepLR(config['optim'], 1, gamma=0.1)
-        config['max_epoch'] = 20
+            config["optim"] = optim.Adam(
+                self.densenet121.classifier.parameters(), lr=1e-1,
+            )
+        config["scheduler"] = optim.lr_scheduler.StepLR(config["optim"], 1, gamma=0.1)
+        config["max_epoch"] = 20
         return config
 
 
@@ -536,17 +759,36 @@ class NIHChestVGG(nn.Module, PartialForwardable):
         super(NIHChestVGG, self).__init__()
 
         # Based on the imagenet normalization params.
-        #self.offset = 0.44900
-        #self.multiplier = 4.42477
+        # self.offset = 0.44900
+        # self.multiplier = 4.42477
 
-        self.cfg = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M']
+        self.cfg = [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            256,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+        ]
         self.model = VGG.VGG(VGG.make_layers(self.cfg, batch_norm=True), num_classes=2)
         # TinyImagenet would have a different sized feature map.
-        #self.model.classifier = nn.Sequential(
+        # self.model.classifier = nn.Sequential(
         #    nn.Linear(512 * 2 * 2, 4096), nn.ReLU(True), nn.Dropout(),
         #    nn.Linear(4096, 4096), nn.ReLU(True), nn.Dropout(),
         #    nn.Linear(4096, 2),
-        #)
+        # )
         self.model._initialize_weights()
 
     def forward(self, x, softmax=True):
@@ -561,10 +803,18 @@ class NIHChestVGG(nn.Module, PartialForwardable):
 
     def train_config(self):
         config = {}
-        config['optim']     = optim.Adam(self.parameters(), lr=1e-3)
-        config['scheduler'] = optim.lr_scheduler.ReduceLROnPlateau(config['optim'], patience=10, threshold=1e-2, min_lr=1e-6, factor=0.1, verbose=True)
-        config['max_epoch'] = 120
+        config["optim"] = optim.Adam(self.parameters(), lr=1e-3)
+        config["scheduler"] = optim.lr_scheduler.ReduceLROnPlateau(
+            config["optim"],
+            patience=10,
+            threshold=1e-2,
+            min_lr=1e-6,
+            factor=0.1,
+            verbose=True,
+        )
+        config["max_epoch"] = 120
         return config
+
 
 class PADDense(nn.Module, PartialForwardable):
     def __init__(self, pretrained_weights_path=None, train_features=True):
@@ -573,9 +823,11 @@ class PADDense(nn.Module, PartialForwardable):
         self.densenet121 = Densenet.densenet121(pretrained=False)
         if pretrained_weights_path is not None:
             self.load_state_dict(torch.load(pretrained_weights_path), strict=False)
-        self.densenet121.features[0] = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        self.densenet121.features[0] = nn.Conv2d(
+            1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
+        )
         feature_dim = self.densenet121.classifier.in_features
-        self.densenet121.classifier =nn.Linear(feature_dim, 2)
+        self.densenet121.classifier = nn.Linear(feature_dim, 2)
 
     def forward(self, x, softmax=True):
         output = self.densenet121(x)
@@ -585,19 +837,26 @@ class PADDense(nn.Module, PartialForwardable):
             return output
 
     def output_size(self):
-        return torch.LongTensor([1,2])
+        return torch.LongTensor([1, 2])
 
     def train_config(self):
         config = {}
         if self.train_features:
-            config['optim'] = optim.Adam(
-                [{'params':self.densenet121.classifier.parameters(), 'lr':1e-3}, {'params':self.densenet121.features.parameters()}],
-                lr=1e-3)
+            config["optim"] = optim.Adam(
+                [
+                    {"params": self.densenet121.classifier.parameters(), "lr": 1e-3},
+                    {"params": self.densenet121.features.parameters()},
+                ],
+                lr=1e-3,
+            )
         else:
-            config['optim'] = optim.Adam(self.densenet121.classifier.parameters(), lr=1e-3, )
-        #config['scheduler'] = optim.lr_scheduler.StepLR(config['optim'], 30, gamma=0.1)
-        config['max_epoch'] = 100
+            config["optim"] = optim.Adam(
+                self.densenet121.classifier.parameters(), lr=1e-3,
+            )
+        # config['scheduler'] = optim.lr_scheduler.StepLR(config['optim'], 30, gamma=0.1)
+        config["max_epoch"] = 100
         return config
+
 
 class DRDDense(nn.Module, PartialForwardable):
     def __init__(self, pretrained_weights_path=None, train_features=False):
@@ -607,7 +866,7 @@ class DRDDense(nn.Module, PartialForwardable):
         if pretrained_weights_path is not None:
             self.load_state_dict(torch.load(pretrained_weights_path), strict=False)
         feature_dim = self.densenet121.classifier.in_features
-        self.densenet121.classifier =nn.Linear(feature_dim, 2)
+        self.densenet121.classifier = nn.Linear(feature_dim, 2)
 
     def forward(self, x, softmax=True):
         output = self.densenet121(x)
@@ -617,19 +876,26 @@ class DRDDense(nn.Module, PartialForwardable):
             return output
 
     def output_size(self):
-        return torch.LongTensor([1,2])
+        return torch.LongTensor([1, 2])
 
     def train_config(self):
         config = {}
         if self.train_features:
-            config['optim'] = optim.Adam(
-                [{'params':self.densenet121.classifier.parameters(), 'lr':1e-3}, {'params':self.densenet121.features.parameters()}],
-                lr=1e-3)
+            config["optim"] = optim.Adam(
+                [
+                    {"params": self.densenet121.classifier.parameters(), "lr": 1e-3},
+                    {"params": self.densenet121.features.parameters()},
+                ],
+                lr=1e-3,
+            )
         else:
-            config['optim'] = optim.Adam(self.densenet121.classifier.parameters(), lr=1e-3, )
-        config['scheduler'] = optim.lr_scheduler.StepLR(config['optim'], 30, gamma=0.5)
-        config['max_epoch'] = 100
+            config["optim"] = optim.Adam(
+                self.densenet121.classifier.parameters(), lr=1e-3,
+            )
+        config["scheduler"] = optim.lr_scheduler.StepLR(config["optim"], 30, gamma=0.5)
+        config["max_epoch"] = 100
         return config
+
 
 class PCAMDense(nn.Module, PartialForwardable):
     def __init__(self, pretrained_weights_path=None, train_features=False):
@@ -639,7 +905,7 @@ class PCAMDense(nn.Module, PartialForwardable):
         if pretrained_weights_path is not None:
             self.load_state_dict(torch.load(pretrained_weights_path), strict=False)
         feature_dim = self.densenet121.classifier.in_features
-        self.densenet121.classifier =nn.Linear(feature_dim, 2)
+        self.densenet121.classifier = nn.Linear(feature_dim, 2)
 
     def forward(self, x, softmax=True):
         output = self.densenet121(x)
@@ -649,16 +915,22 @@ class PCAMDense(nn.Module, PartialForwardable):
             return output
 
     def output_size(self):
-        return torch.LongTensor([1,2])
+        return torch.LongTensor([1, 2])
 
     def train_config(self):
         config = {}
         if self.train_features:
-            config['optim'] = optim.Adam(
-                [{'params':self.densenet121.classifier.parameters(), 'lr':1e-1}, {'params':self.densenet121.features.parameters()}],
-                lr=1e-1)
+            config["optim"] = optim.Adam(
+                [
+                    {"params": self.densenet121.classifier.parameters(), "lr": 1e-1},
+                    {"params": self.densenet121.features.parameters()},
+                ],
+                lr=1e-1,
+            )
         else:
-            config['optim'] = optim.Adam(self.densenet121.classifier.parameters(), lr=1e-1, )
-        config['scheduler'] = optim.lr_scheduler.StepLR(config['optim'], 10, gamma=0.5)
-        config['max_epoch'] = 100
+            config["optim"] = optim.Adam(
+                self.densenet121.classifier.parameters(), lr=1e-1,
+            )
+        config["scheduler"] = optim.lr_scheduler.StepLR(config["optim"], 10, gamma=0.5)
+        config["max_epoch"] = 100
         return config

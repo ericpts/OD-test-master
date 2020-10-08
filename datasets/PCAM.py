@@ -13,9 +13,17 @@ import gzip
 
 
 class PCAMBase(data.Dataset):
-    def __init__(self, source_dir, split, imsize=96, transforms=None,
-                 to_gray=False, download=False, extract=True):
-        super(PCAMBase,self).__init__()
+    def __init__(
+        self,
+        source_dir,
+        split,
+        imsize=96,
+        transforms=None,
+        to_gray=False,
+        download=False,
+        extract=True,
+    ):
+        super(PCAMBase, self).__init__()
         self.source_dir = source_dir
         self.split = split
         self.imsize = imsize
@@ -27,10 +35,18 @@ class PCAMBase(data.Dataset):
         assert split in ["train", "valid", "test"]
         if extract:
             self.extract()
-            #self.h5x = h5py.File(osp.join(self.source_dir, "camelyonpatch_level_2_split_%s_x.h5" % self.split), mode='r', swmr=True)
-            #self.h5y = h5py.File(osp.join(self.source_dir, "camelyonpatch_level_2_split_%s_y.h5" % self.split), mode='r', swmr=True)
-            self.x = np.load(osp.join(self.source_dir, "camelyonpatch_level_2_split_%s_x.npy" % self.split))
-            self.label_tensors = np.load(osp.join(self.source_dir, "camelyonpatch_level_2_split_%s_y.npy" % self.split))
+            # self.h5x = h5py.File(osp.join(self.source_dir, "camelyonpatch_level_2_split_%s_x.h5" % self.split), mode='r', swmr=True)
+            # self.h5y = h5py.File(osp.join(self.source_dir, "camelyonpatch_level_2_split_%s_y.h5" % self.split), mode='r', swmr=True)
+            self.x = np.load(
+                osp.join(
+                    self.source_dir, "camelyonpatch_level_2_split_%s_x.npy" % self.split
+                )
+            )
+            self.label_tensors = np.load(
+                osp.join(
+                    self.source_dir, "camelyonpatch_level_2_split_%s_y.npy" % self.split
+                )
+            )
 
     def __len__(self):
         return len(self.label_tensors)
@@ -39,33 +55,48 @@ class PCAMBase(data.Dataset):
         x = self.x[item]
         label = torch.LongTensor(self.label_tensors[item]).squeeze()
         if self.to_gray:
-            img = self.transforms(transforms.ToPILImage()(x).convert('L'))
+            img = self.transforms(transforms.ToPILImage()(x).convert("L"))
         else:
-            img = self.transforms(transforms.ToPILImage()(x).convert('RGB'))
+            img = self.transforms(transforms.ToPILImage()(x).convert("RGB"))
         return img, label
 
     def extract(self):
-        if os.path.exists(os.path.join(self.source_dir, "camelyonpatch_level_2_split_test_x.npy")):
+        if os.path.exists(
+            os.path.join(self.source_dir, "camelyonpatch_level_2_split_test_x.npy")
+        ):
             return
         import shutil
-        tarsplits_list = ["camelyonpatch_level_2_split_test_x.h5.gz",
-                          "camelyonpatch_level_2_split_train_x.h5.gz",
-                          "camelyonpatch_level_2_split_valid_x.h5.gz",
-                          "camelyonpatch_level_2_split_train_y.h5.gz",
-                          "camelyonpatch_level_2_split_valid_y.h5.gz",
-                          "camelyonpatch_level_2_split_test_y.h5.gz",
-                     ]
+
+        tarsplits_list = [
+            "camelyonpatch_level_2_split_test_x.h5.gz",
+            "camelyonpatch_level_2_split_train_x.h5.gz",
+            "camelyonpatch_level_2_split_valid_x.h5.gz",
+            "camelyonpatch_level_2_split_train_y.h5.gz",
+            "camelyonpatch_level_2_split_valid_y.h5.gz",
+            "camelyonpatch_level_2_split_test_y.h5.gz",
+        ]
         for tar_split in tarsplits_list:
-            with gzip.open(os.path.join(self.source_dir, tar_split), 'rb') as f_in:
-                with open(os.path.join(self.source_dir, tar_split.split(".")[0]), 'wb') as f_out:
+            with gzip.open(os.path.join(self.source_dir, tar_split), "rb") as f_in:
+                with open(
+                    os.path.join(self.source_dir, tar_split.split(".")[0]), "wb"
+                ) as f_out:
                     shutil.copyfileobj(f_in, f_out)
 
 
 class PCAM(AbstractDomainInterface):
 
     dataset_path = "pcam"
-    def __init__(self, root_path="./workspace/datasets/pcam", downsample=None, shrink_channels=False, test_length=None, download=False,
-                 extract=True, doubledownsample=None):
+
+    def __init__(
+        self,
+        root_path="./workspace/datasets/pcam",
+        downsample=None,
+        shrink_channels=False,
+        test_length=None,
+        download=False,
+        extract=True,
+        doubledownsample=None,
+    ):
         """
         :param leave_out_classes: if a sample has ANY class from this list as positive, then it is removed from indices.
         :param keep_in_classes: when specified, if a sample has None of the class from this list as positive, then it
@@ -74,55 +105,87 @@ class PCAM(AbstractDomainInterface):
         self.name = "PCAM"
         super(PCAM, self).__init__()
         self.downsample = downsample
-        self.shrink_channels=shrink_channels
+        self.shrink_channels = shrink_channels
         self.max_l = test_length
         cache_path = root_path
         source_path = root_path
         if doubledownsample is not None:
-            transform_list = [transforms.Resize(doubledownsample),]
+            transform_list = [
+                transforms.Resize(doubledownsample),
+            ]
         else:
             transform_list = []
         if downsample is not None:
             print("downsampling to", downsample)
-            transform_list += [transforms.Resize((downsample, downsample)),
-                                            transforms.ToTensor(),]
+            transform_list += [
+                transforms.Resize((downsample, downsample)),
+                transforms.ToTensor(),
+            ]
             if self.shrink_channels:
-                transform_list += [transforms.Grayscale(),]
+                transform_list += [
+                    transforms.Grayscale(),
+                ]
             #    else:
             #    transform_list += [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),]
             transform = transforms.Compose(transform_list)
             self.image_size = (downsample, downsample)
         else:
-            transform_list += [transforms.Resize((224, 224)),
-                               transforms.ToTensor(), ]
+            transform_list += [
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+            ]
             if self.shrink_channels:
-                transform_list += [transforms.Grayscale(),]
-            #else:
+                transform_list += [
+                    transforms.Grayscale(),
+                ]
+            # else:
             #    transform_list += [transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),]
             transform = transforms.Compose(transform_list)
             self.image_size = (224, 224)
 
-        self.ds_train = PCAMBase(source_path, "train", imsize=self.image_size[0], transforms=transform,
-                                     to_gray=shrink_channels, download=download, extract=extract)
-        self.ds_valid = PCAMBase(source_path, "valid", imsize=self.image_size[0], transforms=transform,
-                                to_gray=shrink_channels, download=download, extract=extract)
-        self.ds_test = PCAMBase(source_path, "test", imsize=self.image_size[0], transforms=transform,
-                               to_gray=shrink_channels, download=download, extract=extract)
+        self.ds_train = PCAMBase(
+            source_path,
+            "train",
+            imsize=self.image_size[0],
+            transforms=transform,
+            to_gray=shrink_channels,
+            download=download,
+            extract=extract,
+        )
+        self.ds_valid = PCAMBase(
+            source_path,
+            "valid",
+            imsize=self.image_size[0],
+            transforms=transform,
+            to_gray=shrink_channels,
+            download=download,
+            extract=extract,
+        )
+        self.ds_test = PCAMBase(
+            source_path,
+            "test",
+            imsize=self.image_size[0],
+            transforms=transform,
+            to_gray=shrink_channels,
+            download=download,
+            extract=extract,
+        )
         if extract:
             self.D1_train_ind = self.get_filtered_inds(self.ds_train, shuffle=True)
-            self.D1_valid_ind = self.get_filtered_inds(self.ds_valid, shuffle=True, max_l=self.max_l)
+            self.D1_valid_ind = self.get_filtered_inds(
+                self.ds_valid, shuffle=True, max_l=self.max_l
+            )
             self.D1_test_ind = self.get_filtered_inds(self.ds_test, shuffle=True)
 
             self.D2_valid_ind = self.get_filtered_inds(self.ds_train, shuffle=True)
             self.D2_test_ind = self.get_filtered_inds(self.ds_test)
-
 
     def get_filtered_inds(self, basedata: PCAMBase, shuffle=False, max_l=None):
         output_inds = torch.arange(0, len(basedata)).int()
         if shuffle:
             output_inds = output_inds[torch.randperm(len(output_inds))]
         if max_l is not None:
-            if len(output_inds) >max_l:
+            if len(output_inds) > max_l:
                 output_inds = output_inds[:max_l]
         return output_inds
 
@@ -138,29 +201,46 @@ class PCAM(AbstractDomainInterface):
     def get_D2_valid(self, D1):
         assert self.is_compatible(D1)
         target_indices = self.D2_valid_ind
-        return SubDataset(self.name, self.ds_train, target_indices, label=1, transform=D1.conformity_transform())
+        return SubDataset(
+            self.name,
+            self.ds_train,
+            target_indices,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def get_D2_test(self, D1):
         assert self.is_compatible(D1)
         target_indices = self.D2_test_ind
-        return SubDataset(self.name, self.ds_test, target_indices, label=1, transform=D1.conformity_transform())
+        return SubDataset(
+            self.name,
+            self.ds_test,
+            target_indices,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def conformity_transform(self):
         target = self.image_size[0]
         if self.shrink_channels:
-            return transforms.Compose([ExpandRGBChannels(),
-                                       transforms.ToPILImage(),
-                                       transforms.Grayscale(),
-                                       transforms.Resize((target, target)),
-                                       transforms.ToTensor()
-                                       ])
+            return transforms.Compose(
+                [
+                    ExpandRGBChannels(),
+                    transforms.ToPILImage(),
+                    transforms.Grayscale(),
+                    transforms.Resize((target, target)),
+                    transforms.ToTensor(),
+                ]
+            )
         else:
-            return transforms.Compose([
-                                       ExpandRGBChannels(),
-                                       transforms.ToPILImage(),
-                                       transforms.Resize((target, target)),
-                                       transforms.ToTensor(),
-                                       ])
+            return transforms.Compose(
+                [
+                    ExpandRGBChannels(),
+                    transforms.ToPILImage(),
+                    transforms.Resize((target, target)),
+                    transforms.ToTensor(),
+                ]
+            )
 
 
 class PCAMResize(AbstractDomainInterface):
@@ -168,78 +248,130 @@ class PCAMResize(AbstractDomainInterface):
         super(PCAMResize, self).__init__()
         self.name = source_data.name
         if source_data.shrink_channels:
-            transform_list = [ExpandRGBChannels(),
-                              transforms.ToPILImage(),
-                              transforms.Grayscale(),
-                              transforms.Resize((downsample, downsample)),
-                              transforms.ToTensor(),
-                              ]
+            transform_list = [
+                ExpandRGBChannels(),
+                transforms.ToPILImage(),
+                transforms.Grayscale(),
+                transforms.Resize((downsample, downsample)),
+                transforms.ToTensor(),
+            ]
         else:
-            transform_list = [ExpandRGBChannels(),
-                              transforms.ToPILImage(),
-                              transforms.Resize((downsample, downsample)),
-                              transforms.ToTensor(),]
-
+            transform_list = [
+                ExpandRGBChannels(),
+                transforms.ToPILImage(),
+                transforms.Resize((downsample, downsample)),
+                transforms.ToTensor(),
+            ]
 
         self.transform = transforms.Compose(transform_list)
         self.image_size = (downsample, downsample)
         self.source_data = source_data
 
     def get_D1_train(self):
-        return SubDataset(self.name, self.source_data.ds_train, self.source_data.D1_train_ind, transform=self.transform)
+        return SubDataset(
+            self.name,
+            self.source_data.ds_train,
+            self.source_data.D1_train_ind,
+            transform=self.transform,
+        )
 
     def get_D1_valid(self):
-        return SubDataset(self.name, self.source_data.ds_valid, self.source_data.D1_valid_ind, label=0, transform=self.transform)
+        return SubDataset(
+            self.name,
+            self.source_data.ds_valid,
+            self.source_data.D1_valid_ind,
+            label=0,
+            transform=self.transform,
+        )
 
     def get_D1_test(self):
-        return SubDataset(self.name, self.source_data.ds_test, self.source_data.D1_test_ind, label=0, transform=self.transform)
+        return SubDataset(
+            self.name,
+            self.source_data.ds_test,
+            self.source_data.D1_test_ind,
+            label=0,
+            transform=self.transform,
+        )
 
     def get_D2_valid(self, D1):
         assert self.is_compatible(D1)
         target_indices = self.source_data.D2_valid_ind
-        return SubDataset(self.name, self.source_data.ds_train, target_indices, label=1, transform=D1.conformity_transform())
+        return SubDataset(
+            self.name,
+            self.source_data.ds_train,
+            target_indices,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def get_D2_test(self, D1):
         assert self.is_compatible(D1)
         target_indices = self.source_data.D2_test_ind
-        return SubDataset(self.name, self.source_data.ds_test, target_indices, label=1, transform=D1.conformity_transform())
+        return SubDataset(
+            self.name,
+            self.source_data.ds_test,
+            target_indices,
+            label=1,
+            transform=D1.conformity_transform(),
+        )
 
     def conformity_transform(self):
         target = self.image_size[0]
         if self.source_data.shrink_channels:
-            return transforms.Compose([ExpandRGBChannels(),
-                                       transforms.ToPILImage(),
-                                       transforms.Grayscale(),
-                                       transforms.Resize((target, target)),
-                                       transforms.ToTensor()
-                                       ])
+            return transforms.Compose(
+                [
+                    ExpandRGBChannels(),
+                    transforms.ToPILImage(),
+                    transforms.Grayscale(),
+                    transforms.Resize((target, target)),
+                    transforms.ToTensor(),
+                ]
+            )
         else:
-            return transforms.Compose([
-                                       ExpandRGBChannels(),
-                                       transforms.ToPILImage(),
-                                       transforms.Resize((target, target)),
-                                       transforms.ToTensor(),
-                                       ])
-
+            return transforms.Compose(
+                [
+                    ExpandRGBChannels(),
+                    transforms.ToPILImage(),
+                    transforms.Resize((target, target)),
+                    transforms.ToTensor(),
+                ]
+            )
 
 
 class PCAMGray(PCAM):
     dataset_path = "pcam"
-    def __init__(self, root_path="./workspace/datasets/pcam", downsample=None, shrink_channels=False, test_length=None,
-                 download=False,
-                 extract=True, doubledownsample=None):
+
+    def __init__(
+        self,
+        root_path="./workspace/datasets/pcam",
+        downsample=None,
+        shrink_channels=False,
+        test_length=None,
+        download=False,
+        extract=True,
+        doubledownsample=None,
+    ):
         self.name = "PCAMGray"
         shrink_channels = True
-        super(PCAMGray, self).__init__(root_path, downsample, shrink_channels, test_length, download, extract,
-                                       doubledownsample)
+        super(PCAMGray, self).__init__(
+            root_path,
+            downsample,
+            shrink_channels,
+            test_length,
+            download,
+            extract,
+            doubledownsample,
+        )
+
 
 if __name__ == "__main__":
 
     data1 = PCAM()
     d1 = data1.get_D1_train()
     import matplotlib.pyplot as plt
+
     print(len(d1))
     for i in range(10):
         x, y = d1[i]
-        #x2 = x * 0.229 + 0.485
+        # x2 = x * 0.229 + 0.485
         plt.imshow(x.numpy().transpose((1, 2, 0)))

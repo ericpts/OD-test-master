@@ -5,23 +5,25 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 res_path = "workspace/experiments/eval3d_nih_nofig_no3264_seed10/results.pth"
-results = torch.load(res_path)['results']
+results = torch.load(res_path)["results"]
 rec_error = {
-            "reconst_thresh/0":"12Layer-AE-BCE",
-            "reconst_thresh/1":"12Layer-AE-MSE",
-            "reconst_thresh/2":"12Layer-VAE-BCE",
-            "reconst_thresh/3": "12Layer-VAE-MSE",
-            "reconst_thresh/4": "ALIstyle-AE-BCE",
-            "reconst_thresh/5": "ALIstyle-AE-MSE",
-            "reconst_thresh/6": "ALIstyle-VAE-BCE",
-            "reconst_thresh/7": "ALIstyle-VAE-MSE",
-            "reconst_thresh/8": "DeepRes-AE-BCE",
-            "reconst_thresh/9": "DeepRes-AE-MSE",
-            "reconst_thresh/10": "ALIRes-AE-BCE",
-            "reconst_thresh/11": "ALIRes-AE-MSE",
-            "reconst_thresh/12": "ALIRes-VAE-BCE",
-            "reconst_thresh/13": "ALIRes-VAE-MSE",
-             }
+    "reconst_thresh/0": "12Layer-AE-BCE",
+    "reconst_thresh/1": "12Layer-AE-MSE",
+    "reconst_thresh/2": "12Layer-VAE-BCE",
+    "reconst_thresh/3": "12Layer-VAE-MSE",
+    "reconst_thresh/4": "ALIstyle-AE-BCE",
+    "reconst_thresh/5": "ALIstyle-AE-MSE",
+    "reconst_thresh/6": "ALIstyle-VAE-BCE",
+    "reconst_thresh/7": "ALIstyle-VAE-MSE",
+    "reconst_thresh/8": "DeepRes-AE-BCE",
+    "reconst_thresh/9": "DeepRes-AE-MSE",
+    "reconst_thresh/10": "ALIRes-AE-BCE",
+    "reconst_thresh/11": "ALIRes-AE-MSE",
+    "reconst_thresh/12": "ALIRes-VAE-BCE",
+    "reconst_thresh/13": "ALIRes-VAE-MSE",
+}
+
+
 def weighted_std(values, weights, axis=None):
     if axis is None:
         axis = np.arange(len(values.shape))
@@ -30,12 +32,15 @@ def weighted_std(values, weights, axis=None):
     for axi in axis:
         average = np.expand_dims(average, axi)
     # Fast and numerically precise:
-    variance = np.average((values-average)**2, weights=weights, axis=axis)
+    variance = np.average((values - average) ** 2, weights=weights, axis=axis)
     return np.sqrt(variance)
+
 
 def make_plot(filename, d2_handles, title):
     if type(d2_handles) == str:
-        d2_handles = [d2_handles, ]
+        d2_handles = [
+            d2_handles,
+        ]
     use_case1_acc = []
     use_case1_auroc = []
     use_case1_auprc = []
@@ -79,45 +84,50 @@ def make_plot(filename, d2_handles, title):
     inds_0, inds_1, inds_2 = np.nonzero(np.array(weights == 0))
 
     for i in range(len(inds_0)):
-        print(method_handles[inds_0[i]],", ", true_d2_handles[inds_1[i]], ",", d3_handles[inds_2[i]], ", has no entry")
+        print(
+            method_handles[inds_0[i]],
+            ", ",
+            true_d2_handles[inds_1[i]],
+            ",",
+            d3_handles[inds_2[i]],
+            ", has no entry",
+        )
     # method means
-    uc1_accm = np.average(uc1_acc, axis=(1,2), weights=weights)
-    uc1_rocm = np.average(uc1_roc, axis=(1,2), weights=weights)
-    uc1_prcm = np.average(uc1_prc, axis=(1,2), weights=weights)
+    uc1_accm = np.average(uc1_acc, axis=(1, 2), weights=weights)
+    uc1_rocm = np.average(uc1_roc, axis=(1, 2), weights=weights)
+    uc1_prcm = np.average(uc1_prc, axis=(1, 2), weights=weights)
 
-    uc1_accv = weighted_std(uc1_acc, weights, axis=(1,2))
-    uc1_rocv = weighted_std(uc1_roc, weights, axis=(1,2))
-    uc1_prcv = weighted_std(uc1_prc, weights, axis=(1,2))
+    uc1_accv = weighted_std(uc1_acc, weights, axis=(1, 2))
+    uc1_rocv = weighted_std(uc1_roc, weights, axis=(1, 2))
+    uc1_prcv = weighted_std(uc1_prc, weights, axis=(1, 2))
 
-    #uc1_accq = np.quantile(uc1_acc, [.25, .75], axis=1)
-    #uc1_rocq = np.quantile(uc1_roc, [.25, .75], axis=1)
-    #uc1_prcq = np.quantile(uc1_prc, [.25, .75], axis=1)
+    # uc1_accq = np.quantile(uc1_acc, [.25, .75], axis=1)
+    # uc1_rocq = np.quantile(uc1_roc, [.25, .75], axis=1)
+    # uc1_prcq = np.quantile(uc1_prc, [.25, .75], axis=1)
 
-    #accdelta = np.array((uc1_accq[1, :] - uc1_accm, uc1_accm - uc1_accq[0, :]))
-    #rocdelta = np.array((uc1_rocq[1, :] - uc1_rocm, uc1_rocm - uc1_rocq[0, :]))
-    #prcdelta = np.array((uc1_prcq[1, :] - uc1_prcm, uc1_prcm - uc1_prcq[0, :]))
+    # accdelta = np.array((uc1_accq[1, :] - uc1_accm, uc1_accm - uc1_accq[0, :]))
+    # rocdelta = np.array((uc1_rocq[1, :] - uc1_rocm, uc1_rocm - uc1_rocq[0, :]))
+    # prcdelta = np.array((uc1_prcq[1, :] - uc1_prcm, uc1_prcm - uc1_prcq[0, :]))
 
     fig, ax = plt.subplots()
     ind = np.arange(len(uc1_accm))  # the x locations for the groups
     width = 0.25  # the width of the bars
-    rects1 = ax.bar(ind - width * 0.75, uc1_accm, width, yerr=uc1_accv,
-                    label='Accuracy')
-    rects2 = ax.bar(ind, uc1_rocm, width, yerr=uc1_rocv,
-                    label='AUROC')
-    rects3 = ax.bar(ind + width * 0.75, uc1_rocm, width, yerr=uc1_prcv,
-                    label='AUPRC')
+    rects1 = ax.bar(
+        ind - width * 0.75, uc1_accm, width, yerr=uc1_accv, label="Accuracy"
+    )
+    rects2 = ax.bar(ind, uc1_rocm, width, yerr=uc1_rocv, label="AUROC")
+    rects3 = ax.bar(ind + width * 0.75, uc1_rocm, width, yerr=uc1_prcv, label="AUPRC")
 
     ax.set_xticks(ind)
-    ax.set_xticklabels(method_handles, rotation=45, ha='right')
+    ax.set_xticklabels(method_handles, rotation=45, ha="right")
     title_str = title + ", D2="
     for handle in d2_handles:
-        title_str += handle+', '
+        title_str += handle + ", "
     title_str += "error bar shows std"
     ax.set_title(title_str)
     ax.legend()
     fig.set_size_inches(25, 9.5)
     # when saving, specify the DPI
-
 
     backend = matplotlib.get_backend()
 
@@ -130,16 +140,17 @@ def make_plot(filename, d2_handles, title):
     else:
         manager = plt.get_current_fig_manager()
         manager.frame.Maximize(True)
-    #plt.show()
+    # plt.show()
     plt.savefig(filename, dpi=100)
     return
 
-filenames = ["UC1_224-64_2.png",
-             "UC2_224-64_2.png",
-             "UC3_224-64_2.png",
-             ]
-d2sets = [["CIFAR10", "MURAHAND", "UniformNoise",],
-          "PAD", "NIHCC"]
+
+filenames = [
+    "UC1_224-64_2.png",
+    "UC2_224-64_2.png",
+    "UC3_224-64_2.png",
+]
+d2sets = [["CIFAR10", "MURAHAND", "UniformNoise",], "PAD", "NIHCC"]
 titles = ["Usecase 1", "Usecase 2", "Usecase 3"]
 for fn, d2, title in zip(filenames, d2sets, titles):
     make_plot(fn, d2, title)

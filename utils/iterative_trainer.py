@@ -11,45 +11,50 @@ import torch.nn.functional as F
 
 from visdom import Visdom
 
+
 class IterativeTrainerConfig(object):
     pass
+
 
 class IterativeTrainer(object):
     def __init__(self, config, args):
         self.config = config
-        self.args   = args
+        self.args = args
         self.device = args.device
         if config.visualize:
-            self.visdom = Visdom(ipv6=False, env='(%s)-%s:%s'%(args.hostname, args.experiment_id, config.name))
+            self.visdom = Visdom(
+                ipv6=False,
+                env="(%s)-%s:%s" % (args.hostname, args.experiment_id, config.name),
+            )
         # Set the default behaviours if not set.
         defaults = {
-            'classification': False,
-            'cast_float_label': False,
-            'autoencoder_target': False,
-            'autoencoder_class': False,
-            'stochastic_gradient': True,
-            'visualize': True,
-            'sigmoid_viz': True,
+            "classification": False,
+            "cast_float_label": False,
+            "autoencoder_target": False,
+            "autoencoder_class": False,
+            "stochastic_gradient": True,
+            "visualize": True,
+            "sigmoid_viz": True,
         }
         for key, value in defaults.items():
             if not hasattr(self.config, key):
-                print(colored('Setting default value %s to %s'%(key, value), 'red'))
+                print(colored("Setting default value %s to %s" % (key, value), "red"))
                 setattr(self.config, key, value)
-    
-    def run_epoch(self, epoch, phase='train'):
-        # Retrieve the appropriate config.
-        config      = self.config.phases[phase]
-        dataset     = config['dataset']
-        backward    = config['backward']
-        phase_name  = phase
-        #print("Doing %s"%colored(phase, 'green'))
 
-        model       = self.config.model
-        visualize   = self.config.visualize
-        criterion   = self.config.criterion
-        optimizer   = self.config.optim
-        logger      = self.config.logger
-        stochastic  = self.config.stochastic_gradient
+    def run_epoch(self, epoch, phase="train"):
+        # Retrieve the appropriate config.
+        config = self.config.phases[phase]
+        dataset = config["dataset"]
+        backward = config["backward"]
+        phase_name = phase
+        # print("Doing %s"%colored(phase, 'green'))
+
+        model = self.config.model
+        visualize = self.config.visualize
+        criterion = self.config.criterion
+        optimizer = self.config.optim
+        logger = self.config.logger
+        stochastic = self.config.stochastic_gradient
         classification = self.config.classification
 
         # See the network to the target mode.
@@ -67,12 +72,14 @@ class IterativeTrainer(object):
         # to calculate the gradient correctly.
         loss_scaler = 1
         if not stochastic:
-            loss_scaler = 1./len(dataset.dataset)
+            loss_scaler = 1.0 / len(dataset.dataset)
 
         try:
             # TQDM sometimes throws IOError exceptions when you
             # try to close it. We ignore those exceptions.
-            with tqdm(total=len(dataset), disable=bool(os.environ.get("DISABLE_TQDM", False))) as pbar:
+            with tqdm(
+                total=len(dataset), disable=bool(os.environ.get("DISABLE_TQDM", False))
+            ) as pbar:
                 if backward and not stochastic:
                     optimizer.zero_grad()
 
@@ -83,17 +90,19 @@ class IterativeTrainer(object):
 
                     # Get and prepare data.
                     input, target, data_indices = image, None, None
-                    if torch.typename(label) == 'list':
-                        assert len(label) == 2, 'There should be two entries in the label'
+                    if torch.typename(label) == "list":
+                        assert (
+                            len(label) == 2
+                        ), "There should be two entries in the label"
                         # Need to unpack the label. This is for when the data provider
                         # has the cached flag enabled, therefore the y is now (y, idx).
                         target, data_indices = label
                     else:
                         target = label
-                    
+
                     if self.config.autoencoder_target:
                         target = input.clone()
-                    
+
                     if self.config.cast_float_label:
                         target = target.float().unsqueeze(1)
 
@@ -107,7 +116,9 @@ class IterativeTrainer(object):
                         # Run in the cached mode. This is necessary to speed up
                         # some of the underlying optimization procedures. It is not
                         # always used though.
-                        prediction = model(input, indices=data_indices, group=phase_name)
+                        prediction = model(
+                            input, indices=data_indices, group=phase_name
+                        )
 
                     loss = criterion(prediction, target)
 
@@ -126,8 +137,8 @@ class IterativeTrainer(object):
                     if not backward or not stochastic:
                         if criterion.reduction == "mean":
                             loss.data.mul_(len(input))
-                    logger.log('%s_loss'%phase_name, loss.item(), epoch, i)
-                    message = '%s Batch loss %.3f'%(phase_name, loss.item())
+                    logger.log("%s_loss" % phase_name, loss.item(), epoch, i)
+                    message = "%s Batch loss %.3f" % (phase_name, loss.item())
 
                     if classification:
                         pred = []
@@ -139,38 +150,49 @@ class IterativeTrainer(object):
                             pred = prediction.max(1)[1]
                         if stochastic and backward:
                             acc = (pred == target.long()).float().view(-1).mean().item()
-                            logger.log('%s_accuracy'%phase_name, acc, epoch, i)
+                            logger.log("%s_accuracy" % phase_name, acc, epoch, i)
                         else:
                             acc = (pred == target.long()).float().view(-1).sum().item()
-                            logger.log('%s_accuracy'%phase_name, acc, epoch, i)
-                            acc = acc/target.numel()
-                        if 'num_classes' in self.args:
+                            logger.log("%s_accuracy" % phase_name, acc, epoch, i)
+                            acc = acc / target.numel()
+                        if "num_classes" in self.args:
                             nc = self.args.num_classes
                             confusion_matrix = torch.zeros(nc, nc)
                             for t, p in zip(target.view(-1), pred.view(-1)):
                                 confusion_matrix[t.long(), p.long()] += 1
                             print(confusion_matrix.diag() / confusion_matrix.sum(1))
-                        message = '%s Accuracy %.2f'%(message, acc)
+                        message = "%s Accuracy %.2f" % (message, acc)
                         try:
-                            roc = roc_auc_score(target.data.cpu().numpy(), prediction.data.cpu().view(-1).numpy(), average="micro")
-                            logger.log('%s_AUROC'%phase_name, roc, epoch, i)
-                            message = '%s AUROC %.2f' % (message, roc)
+                            roc = roc_auc_score(
+                                target.data.cpu().numpy(),
+                                prediction.data.cpu().view(-1).numpy(),
+                                average="micro",
+                            )
+                            logger.log("%s_AUROC" % phase_name, roc, epoch, i)
+                            message = "%s AUROC %.2f" % (message, roc)
                         except ValueError:
                             pass
 
                     pbar.set_description(message)
 
-                    if visualize and i % 20 == 0 and (timeit.default_timer() - last_viz_update > 5):
+                    if (
+                        visualize
+                        and i % 20 == 0
+                        and (timeit.default_timer() - last_viz_update > 5)
+                    ):
                         # we don't want to update too quickly. visdom breaks!
-                        logger.visualize_epoch('%s_loss'%phase_name, self.visdom)
-                        self.visdom.images(image.numpy(), win='in_images')
-                        if self.config.autoencoder_target and prediction.size(1) in [1, 3]:
+                        logger.visualize_epoch("%s_loss" % phase_name, self.visdom)
+                        self.visdom.images(image.numpy(), win="in_images")
+                        if self.config.autoencoder_target and prediction.size(1) in [
+                            1,
+                            3,
+                        ]:
                             viz_ten = None
                             if self.config.sigmoid_viz:
                                 viz_ten = F.sigmoid(prediction).cpu().detach().numpy()
                             else:
                                 viz_ten = prediction.cpu().detach().numpy()
-                            self.visdom.images(viz_ten, win='out_images')
+                            self.visdom.images(viz_ten, win="out_images")
                         last_viz_update = timeit.default_timer()
 
                 if backward and not stochastic:
@@ -179,12 +201,16 @@ class IterativeTrainer(object):
             if e.errno != errno.EINTR:
                 raise
             else:
-                print(colored("Problem averted :D", 'green'))
+                print(colored("Problem averted :D", "green"))
 
         if not backward or not stochastic:
-            logger.get_measure('%s_loss'%phase_name).measure_normalizer = len(dataset.dataset)
+            logger.get_measure("%s_loss" % phase_name).measure_normalizer = len(
+                dataset.dataset
+            )
             if classification:
-                logger.get_measure('%s_accuracy'%phase_name).measure_normalizer = len(dataset.dataset)
+                logger.get_measure("%s_accuracy" % phase_name).measure_normalizer = len(
+                    dataset.dataset
+                )
 
         elapsed = timeit.default_timer() - start_time
-        #print('  %s Epoch %d in %.2fs' %(phase_name, epoch, elapsed))
+        # print('  %s Epoch %d in %.2fs' %(phase_name, epoch, elapsed))
