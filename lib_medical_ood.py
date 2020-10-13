@@ -69,6 +69,13 @@ def load_nih_ood(dataset: str, split: str):
     )
 
 
+def filter_out_multilabel(D):
+    def f_filter(X, y):
+        return tf.math.equal(tf.math.reduce_sum(y), 1)
+
+    return D.filter(f_filter)
+
+
 def load_mura(dataset: str, split: str):
     datasets_root = Path(os.environ["SCRATCH"]) / ".datasets"
     mura_path = datasets_root / "MURA"
@@ -96,12 +103,12 @@ def maybe_load_cached(dataset: str, split: str) -> Optional[tf.data.Dataset]:
 
     if "nih" in dataset:
         element_spec = (
-            tf.TensorSpec(shape=(3, 224, 224), dtype=tf.float32),
+            tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),
             tf.TensorSpec(shape=(15,), dtype=tf.int64),
         )
     elif "mura" in dataset:
         element_spec = (
-            tf.TensorSpec(shape=(3, 224, 224), dtype=tf.float32),
+            tf.TensorSpec(shape=(224, 224, 3), dtype=tf.float32),
             tf.TensorSpec(shape=(7,), dtype=tf.int64),
         )
     else:
@@ -109,7 +116,12 @@ def maybe_load_cached(dataset: str, split: str) -> Optional[tf.data.Dataset]:
     return tf.data.experimental.load(str(path), element_spec)
 
 
-def load_data(dataset: str, split: str):
+def impl_load_dataset(dataset: str, split: str) -> tf.data.Dataset:
+    D = maybe_load_cached(dataset, split)
+    if D is not None:
+        print("Reusing cached dataset.")
+        return D
+
     if dataset == "nih_id":
         return load_nih_id(split)
 
@@ -119,16 +131,37 @@ def load_data(dataset: str, split: str):
     if "mura" in dataset:
         return load_mura(dataset, split)
 
+    assert False, f"Unrecognized dataset: {dataset}"
+
+
+def load_dataset(dataset: str, split: str) -> tf.data.Dataset:
+    D = impl_load_dataset(dataset, split)
+    if "nih" in dataset:
+        D = filter_out_multilabel(D)
+    return D
+
+
+def is_medical(dataset_name: str):
+    return ("nih" in dataset_name) or ("mura" in dataset_name)
+
+
+def get_num_classes(dataset_name: str) -> int:
+    if "nih" in dataset_name:
+        return 15
+    if "mura" in dataset_name:
+        return 7
+    assert False, f"Unknown dataset {dataset_name}"
+
 
 def get_image_size():
     return (224, 224, 3)
 
 
 def preprocess():
-    for d in ["mura"]:
-        for split in ["validation"]:
+    for d in ["nira"]:
+        for split in ["train", "test", "validation"]:
             print(f"Preprocessing {d}/{split}... ", end="", flush=True)
-            D = load_data(d, split)
+            D = load_dataset(d, split)
             tf.data.experimental.save(
                 D,
                 str(
