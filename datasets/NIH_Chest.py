@@ -69,11 +69,7 @@ class NIHChestBase(data.Dataset):
         self.to_rgb = to_rgb
         if transforms is None:
             self.transforms = transforms.Compose(
-                [
-                    transforms.Resize((256, 256)),
-                    transforms.RandomCrop((imsize, imsize)),
-                    transforms.ToTensor(),
-                ]
+                [transforms.Resize((imsize, imsize)), transforms.ToTensor(),]
             )
         else:
             self.transforms = transforms
@@ -344,10 +340,10 @@ class NIHChest(AbstractDomainInterface):
         return SubDataset(self.name, self.ds_train, self.D1_train_ind)
 
     def get_D1_valid(self):
-        return SubDataset(self.name, self.ds_valid, self.D1_valid_ind, label=0)
+        return SubDataset(self.name, self.ds_valid, self.D1_valid_ind)
 
     def get_D1_test(self):
-        return SubDataset(self.name, self.ds_test, self.D1_test_ind, label=0)
+        return SubDataset(self.name, self.ds_test, self.D1_test_ind)
 
     def get_D2_valid(self, D1):
         assert self.is_compatible(D1)
@@ -356,7 +352,6 @@ class NIHChest(AbstractDomainInterface):
             self.name,
             self.ds_train,
             target_indices,
-            label=1,
             transform=D1.conformity_transform(),
         )
 
@@ -367,7 +362,6 @@ class NIHChest(AbstractDomainInterface):
             self.name,
             self.ds_test,
             target_indices,
-            label=1,
             transform=D1.conformity_transform(),
         )
 
@@ -380,7 +374,6 @@ class NIHChest(AbstractDomainInterface):
                 [
                     ExpandRGBChannels(),
                     transforms.ToPILImage(),
-                    # transforms.Grayscale(),
                     transforms.Resize((target, target)),
                     transforms.ToTensor(),
                 ]
