@@ -176,7 +176,7 @@ def get_normalization(dataset_name: str):
 
 
 def preprocess():
-    for d in ["nira"]:
+    for d in ["mura"]:
         for split in ["train", "test", "validation"]:
             print(f"Preprocessing {d}/{split}... ", end="", flush=True)
             D = load_dataset(d, split)
