@@ -1,7 +1,7 @@
-from datasets.NIH_Chest import NIHChest
 from pathlib import Path
 from typing import List, Tuple, Optional
-import datasets.MURA as MU
+from medical_ood.datasets.NIH_Chest import NIHChest
+import medical_ood.datasets.MURA as MU
 import os
 import numpy as np
 import torch

@@ -1,7 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 import torch.utils.data as data
-from datasets import SubDataset, AbstractDomainInterface, ExpandRGBChannels
+from . import SubDataset, AbstractDomainInterface, ExpandRGBChannels
 import os
 import os.path as osp
 import csv
@@ -69,7 +69,10 @@ class NIHChestBase(data.Dataset):
         self.to_rgb = to_rgb
         if transforms is None:
             self.transforms = transforms.Compose(
-                [transforms.Resize((imsize, imsize)), transforms.ToTensor(),]
+                [
+                    transforms.Resize((imsize, imsize)),
+                    transforms.ToTensor(),
+                ]
             )
         else:
             self.transforms = transforms
@@ -420,7 +423,13 @@ class NIHChestBinaryTrainSplit(NIHChest):
 class NIHChestBinaryValSplit(NIHChest):
     def __init__(self, *args, **kwargs):
         kwargs.update(
-            {"binary": True, "test_length": 5000, "keep_in_classes": ["Cardiomegaly",]}
+            {
+                "binary": True,
+                "test_length": 5000,
+                "keep_in_classes": [
+                    "Cardiomegaly",
+                ],
+            }
         )
         super(NIHChestBinaryValSplit, self).__init__(*args, **kwargs)
 

@@ -1,12 +1,11 @@
 import torch
 import torchvision.transforms as transforms
 import torch.utils.data as data
-from datasets import SubDataset, AbstractDomainInterface, ExpandRGBChannels
+from . import SubDataset, AbstractDomainInterface, ExpandRGBChannels
 import os
 import os.path as osp
 import csv
 import numpy as np
-import subprocess
 from PIL import Image
 
 LABELS = ["ELBOW", "FINGER", "FOREARM", "HAND", "HUMERUS", "SHOULDER", "WRIST"]
@@ -96,7 +95,12 @@ class MURABase(data.Dataset):
         label_list = []
         print("Reading %s" % self.index_file)
         with open(osp.join(self.source_dir, self.index_file), "r") as fp:
-            csvf = csv.DictReader(fp, ["Image Path",])
+            csvf = csv.DictReader(
+                fp,
+                [
+                    "Image Path",
+                ],
+            )
             for row in csvf:
                 raw_path = row["Image Path"].split("/")[2:]
                 imp = osp.join(self.source_dir, self.image_dir, *raw_path)
@@ -289,7 +293,9 @@ class MURAHAND(MURA):
     ):
         super(MURAHAND, self).__init__(
             root_path,
-            ["HAND",],
+            [
+                "HAND",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -314,7 +320,9 @@ class MURAWRIST(MURA):
     ):
         super(MURAWRIST, self).__init__(
             root_path,
-            ["WRIST",],
+            [
+                "WRIST",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -339,7 +347,9 @@ class MURASHOULDER(MURA):
     ):
         super(MURASHOULDER, self).__init__(
             root_path,
-            ["SHOULDER",],
+            [
+                "SHOULDER",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -365,7 +375,9 @@ class MURAFOREARM(MURA):
     ):
         super(MURAFOREARM, self).__init__(
             root_path,
-            ["FOREARM",],
+            [
+                "FOREARM",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -390,7 +402,9 @@ class MURAFINGER(MURA):
     ):
         super(MURAFINGER, self).__init__(
             root_path,
-            ["FINGER",],
+            [
+                "FINGER",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -415,7 +429,9 @@ class MURAELBOW(MURA):
     ):
         super(MURAELBOW, self).__init__(
             root_path,
-            ["ELBOW",],
+            [
+                "ELBOW",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -440,7 +456,9 @@ class MURAHUMERUS(MURA):
     ):
         super(MURAHUMERUS, self).__init__(
             root_path,
-            ["HUMERUS",],
+            [
+                "HUMERUS",
+            ],
             downsample,
             expand_channels,
             test_length,
