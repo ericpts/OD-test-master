@@ -167,6 +167,14 @@ def get_image_size(dataset_name: str):
     return (224, 224, 3)
 
 
+def get_normalization(dataset_name: str):
+    if "nih" in dataset_name:
+        mean = (0.25720176, 0.25720176, 0.25720176)
+        stddev = (0.2550173, 0.2550173, 0.2550173)
+        return mean, stddev
+    assert False
+
+
 def preprocess():
     for d in ["nira"]:
         for split in ["train", "test", "validation"]:
