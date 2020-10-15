@@ -76,6 +76,15 @@ def filter_out_multilabel(D):
     return D.filter(f_filter)
 
 
+def to_categorical_labels(D: tf.data.Dataset):
+    def f_map(X, y):
+        y = tf.math.argmax(y, axis=-1)
+        return X, y
+
+    D = D.map(f_map)
+    return D
+
+
 def load_mura(dataset: str, split: str):
     datasets_root = Path(os.environ["SCRATCH"]) / ".datasets"
     mura_path = datasets_root / "MURA"
@@ -136,8 +145,9 @@ def impl_load_dataset(dataset: str, split: str) -> tf.data.Dataset:
 
 def load_dataset(dataset: str, split: str) -> tf.data.Dataset:
     D = impl_load_dataset(dataset, split)
-    if "nih" in dataset:
+    if dataset == "nih_id":
         D = filter_out_multilabel(D)
+    D = to_categorical_labels(D)
     return D
 
 
@@ -153,7 +163,7 @@ def get_num_classes(dataset_name: str) -> int:
     assert False, f"Unknown dataset {dataset_name}"
 
 
-def get_image_size():
+def get_image_size(dataset_name: str):
     return (224, 224, 3)
 
 
