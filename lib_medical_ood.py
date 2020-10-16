@@ -147,6 +147,13 @@ def load_dataset(dataset: str, split: str) -> tf.data.Dataset:
     D = impl_load_dataset(dataset, split)
     if dataset == "nih_id":
         D = filter_out_multilabel(D)
+    if dataset == "nih_ood":
+        assert split == "test"
+        # Test has 6299 examples, train has 10232.
+        # Since this dataset is only ever used for test, put all samples
+        # together.
+        D = D.concatenate(impl_load_dataset("nih_ood", "train"))
+
     D = to_categorical_labels(D)
     return D
 
