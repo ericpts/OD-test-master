@@ -7,7 +7,7 @@ import torch.utils.data as data
 from PIL import Image
 from termcolor import colored
 import torchvision.transforms as transforms
-from datasets import SubDataset, AbstractDomainInterface
+from medical_ood.datasets import SubDataset, AbstractDomainInterface
 
 
 """
@@ -152,9 +152,9 @@ class NotMNISTParent(data.Dataset):
 
 class NotMNIST(AbstractDomainInterface):
     """
-        NotMNIST: 18,724 train.
-        D1: not defined.
-        D2: 9362 Valid, 9362 Test. (indices chosen at random)
+    NotMNIST: 18,724 train.
+    D1: not defined.
+    D2: 9362 Valid, 9362 Test. (indices chosen at random)
     """
 
     dataset_path = "notmnist"
@@ -174,7 +174,7 @@ class NotMNIST(AbstractDomainInterface):
             root_path, train=True, transform=im_transformer, download=download
         )
 
-        index_file = os.path.join("./datasets/permutation_files/", "notmnist.pth")
+        index_file = os.path.join(root_path, "notmnist.pth")
         all_indices = None
         if os.path.isfile(index_file):
             all_indices = torch.load(index_file)

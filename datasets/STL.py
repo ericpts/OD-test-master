@@ -1,15 +1,15 @@
 import torch
 import os
 import torchvision.transforms as transforms
-from datasets import SubDataset, AbstractDomainInterface, ExpandRGBChannels
+from . import SubDataset, AbstractDomainInterface, ExpandRGBChannels
 from torchvision import datasets
 
 
 class STL10(AbstractDomainInterface):
     """
-        STL10: 5,000 train + 8,000 test. (3x96x96)
-        D1:    5,000 train + (4,000 valid + 4,000 test)
-        D2:    5,000 valid + 8,000 test.
+    STL10: 5,000 train + 8,000 test. (3x96x96)
+    D1:    5,000 train + (4,000 valid + 4,000 test)
+    D2:    5,000 valid + 8,000 test.
     """
 
     dataset_path = "stl10"

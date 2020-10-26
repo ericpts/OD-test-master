@@ -1,7 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 import torch.utils.data as data
-from datasets import SubDataset, AbstractDomainInterface, ExpandRGBChannels
+from . import SubDataset, AbstractDomainInterface, ExpandRGBChannels
 import os
 import os.path as osp
 import csv
@@ -62,7 +62,11 @@ class DRIMDBBase(data.Dataset):
             img = self.transforms(img.convert("RGB"))
         else:
             img = self.transforms(img.convert("L"))
-        return img, torch.LongTensor([0,])
+        return img, torch.LongTensor(
+            [
+                0,
+            ]
+        )
 
     def generate_split(self):
         n_total = len(self.img_list)

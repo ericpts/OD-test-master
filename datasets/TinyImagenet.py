@@ -7,7 +7,7 @@ import torch.utils.data as data
 from PIL import Image
 from termcolor import colored
 import torchvision.transforms as transforms
-from datasets import SubDataset, AbstractDomainInterface, ExpandRGBChannels
+from . import SubDataset, AbstractDomainInterface, ExpandRGBChannels
 
 
 """
@@ -266,9 +266,9 @@ def filter_indices(dataset, indices, filter_label):
 
 class TinyImagenet(AbstractDomainInterface):
     """
-        TinyImagenet: 100,000 train, 10,000 valid, 10,000 test.
-        D1: 100,000 train (shuffled), 10,000 valid, 10,000 test.
-        D2: 10,000 Valid + 100,000 train (shuffled), 10,000 Test.
+    TinyImagenet: 100,000 train, 10,000 valid, 10,000 test.
+    D1: 100,000 train (shuffled), 10,000 valid, 10,000 test.
+    D2: 10,000 Valid + 100,000 train (shuffled), 10,000 Test.
     """
 
     dataset_path = "tinyimagenet"
@@ -325,9 +325,7 @@ class TinyImagenet(AbstractDomainInterface):
             extract=extract,
         )
         if extract:
-            index_file = os.path.join(
-                "./datasets/permutation_files/", "tinyimagenet.pth"
-            )
+            index_file = os.path.join(root_path, "tinyimagenet.pth")
             train_indices = None
             if os.path.isfile(index_file):
                 train_indices = torch.load(index_file)

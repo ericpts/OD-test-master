@@ -1,6 +1,6 @@
 import torch
 import torch.utils.data as data
-from datasets import AbstractDomainInterface
+from . import AbstractDomainInterface
 
 
 class UnifGenerator(data.Dataset):
@@ -55,8 +55,11 @@ class GaussGenerator(data.Dataset):
 
 class UniformNoise(AbstractDomainInterface):
     """
-        Independent uniform random noise.
+    Independent uniform random noise.
     """
+
+    def get_D1_train(self):
+        return UnifGenerator(224, 224, 1, 20_000)
 
     def get_D2_valid(self, D1):
         other_ds = D1.get_D1_valid()
@@ -77,8 +80,11 @@ class UniformNoise(AbstractDomainInterface):
 
 class NormalNoise(AbstractDomainInterface):
     """
-        Independent uniform random noise.
+    Independent uniform random noise.
     """
+
+    def get_D1_train(self):
+        return GaussGenerator(224, 224, 1, 20_000)
 
     def get_D2_valid(self, D1):
         other_ds = D1.get_D1_valid()

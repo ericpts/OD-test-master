@@ -6,23 +6,23 @@
 """
     This is where we keep a reference to all the dataset classes in the project.
 """
-import datasets.MNIST as MNIST
-import datasets.FashionMNIST as FMNIST
-import datasets.notMNIST as NMNIST
-import datasets.CIFAR as CIFAR
-import datasets.noise as noise
-import datasets.STL as STL
-import datasets.TinyImagenet as TI
-import datasets.NIH_Chest as NC
-import datasets.MURA as MU
-import datasets.PADChest as PC
-import datasets.malaria as mal
-import datasets.ANHIR as ANH
-import datasets.DRD as DRD
-import datasets.DRIMDB as DRM
-import datasets.IDC as IDC
-import datasets.PCAM as PCAM
-import datasets.RIGA as RIGA
+import medical_ood.datasets.MNIST as MNIST
+import medical_ood.datasets.FashionMNIST as FMNIST
+import medical_ood.datasets.notMNIST as NMNIST
+import medical_ood.datasets.CIFAR as CIFAR
+import medical_ood.datasets.noise as noise
+import medical_ood.datasets.STL as STL
+import medical_ood.datasets.TinyImagenet as TI
+import medical_ood.datasets.NIH_Chest as NC
+import medical_ood.datasets.MURA as MU
+import medical_ood.datasets.PADChest as PC
+import medical_ood.datasets.malaria as mal
+import medical_ood.datasets.ANHIR as ANH
+import medical_ood.datasets.DRD as DRD
+import medical_ood.datasets.DRIMDB as DRM
+import medical_ood.datasets.IDC as IDC
+import medical_ood.datasets.PCAM as PCAM
+import medical_ood.datasets.RIGA as RIGA
 
 all_dataset_classes = [
     MNIST.MNIST,
@@ -225,11 +225,21 @@ d2_compatiblity = {
     "PADChestL": ["NIHCC", "PADChest"],
     "PADChestAPHorizontal": ["NIHCC", "PADChest"],
     "PADChestPED": ["NIHCC", "PADChest"],
-    "Malaria": ["PCAM",],
-    "ANHIR": ["PCAM",],
-    "IDC": ["PCAM",],
-    "DRIMDB": ["DRD",],
-    "RIGA": ["DRD",],
+    "Malaria": [
+        "PCAM",
+    ],
+    "ANHIR": [
+        "PCAM",
+    ],
+    "IDC": [
+        "PCAM",
+    ],
+    "DRIMDB": [
+        "DRD",
+    ],
+    "RIGA": [
+        "DRD",
+    ],
     # STL10 is not compatible with CIFAR10 because of the 9-overlapping classes.
     # Erring on the side of caution.
 }
@@ -246,266 +256,6 @@ mirror_augment = {
     "TinyImagenetd32",
 }
 
-"""
-    This where we keep a reference to all the models in the project.
-"""
-
-import models.classifiers as CLS
-import models.autoencoders as AES
-import models.pixelcnn.model as PCNN
-import models.ALImodel as ALI
-
-
-class ModelFactory(object):
-    def __init__(self, parent_class, **kwargs):
-        self.parent_class = parent_class
-        self.kwargs = kwargs
-
-    def __call__(self):
-        return self.parent_class(**self.kwargs)
-
-
-"""
-    Each dataset has a list of compatible neural netwok architectures.
-    Your life would be simpler if you keep the same family as the same index within each dataset.
-    For instance, VGGs are all 0 and Resnets are all 1.
-"""
-dataset_reference_classifiers = {
-    "MNIST": [CLS.MNIST_VGG, CLS.MNIST_Resnet],
-    "FashionMNIST": [CLS.MNIST_VGG, CLS.MNIST_Resnet],
-    "CIFAR10": [CLS.CIFAR10_VGG, CLS.CIFAR10_Resnet],
-    "CIFAR100": [CLS.CIFAR100_VGG, CLS.CIFAR100_Resnet],
-    "STL10": [CLS.STL10_VGG, CLS.STL10_Resnet],
-    "TinyImagenet": [CLS.TinyImagenet_VGG, CLS.TinyImagenet_Resnet],
-    "NIHCC": [CLS.NIHDenseBinary, CLS.NIHChestVGG],
-    "PADChest": [CLS.PADDense],
-    "PCAM": [CLS.PCAMDense],
-    "DRD": [CLS.DRDDense],
-}
-
-
-dataset_reference_autoencoders = {
-    "MNIST": [
-        ModelFactory(
-            AES.Generic_AE, dims=(1, 28, 28), max_channels=256, depth=8, n_hidden=96
-        )
-    ],
-    "FashionMNIST": [
-        ModelFactory(
-            AES.Generic_AE, dims=(1, 28, 28), max_channels=256, depth=8, n_hidden=96
-        )
-    ],
-    "CIFAR10": [
-        ModelFactory(
-            AES.Generic_AE, dims=(3, 32, 32), max_channels=512, depth=10, n_hidden=256
-        )
-    ],
-    "CIFAR100": [
-        ModelFactory(
-            AES.Generic_AE, dims=(3, 32, 32), max_channels=512, depth=10, n_hidden=256
-        )
-    ],
-    "STL10": [
-        ModelFactory(
-            AES.Generic_AE, dims=(3, 96, 96), max_channels=512, depth=12, n_hidden=512
-        )
-    ],
-    "TinyImagenet": [
-        ModelFactory(
-            AES.Generic_AE, dims=(3, 64, 64), max_channels=512, depth=12, n_hidden=512
-        )
-    ],
-    "NIHCC": [
-        ModelFactory(
-            AES.Generic_AE, dims=(1, 64, 64), max_channels=512, depth=12, n_hidden=512
-        ),
-        ModelFactory(AES.ALILikeAE, dims=(1, 64, 64)),
-        ModelFactory(AES.Residual_AE, dims=(1, 64, 64)),
-        ModelFactory(AES.ALILikeResAE, dims=(1, 64, 64)),
-    ],
-    "PADChest": [
-        ModelFactory(
-            AES.Generic_AE, dims=(1, 64, 64), max_channels=512, depth=12, n_hidden=512
-        ),
-        ModelFactory(AES.ALILikeAE, dims=(1, 64, 64)),
-    ],
-    "PCAM": [
-        ModelFactory(
-            AES.Generic_AE, dims=(3, 64, 64), max_channels=512, depth=12, n_hidden=512
-        ),
-        ModelFactory(AES.ALILikeAE, dims=(3, 64, 64)),
-    ],
-    "DRD": [
-        ModelFactory(
-            AES.Generic_AE, dims=(3, 64, 64), max_channels=512, depth=12, n_hidden=512
-        ),
-        ModelFactory(AES.ALILikeAE, dims=(3, 64, 64)),
-    ],
-}
-
-dataset_reference_vaes = {
-    "MNIST": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(1, 28, 28), max_channels=256, depth=8, n_hidden=96
-        )
-    ],
-    "FashionMNIST": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(1, 28, 28), max_channels=256, depth=8, n_hidden=96
-        )
-    ],
-    "CIFAR10": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(3, 32, 32), max_channels=512, depth=10, n_hidden=256
-        )
-    ],
-    "CIFAR100": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(3, 32, 32), max_channels=512, depth=10, n_hidden=256
-        )
-    ],
-    "STL10": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(3, 96, 96), max_channels=512, depth=12, n_hidden=512
-        )
-    ],
-    "TinyImagenet": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(3, 64, 64), max_channels=512, depth=12, n_hidden=512
-        )
-    ],
-    "NIHCC": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(1, 64, 64), max_channels=512, depth=12, n_hidden=512
-        ),
-        ModelFactory(AES.ALILikeVAE, dims=(1, 64, 64)),
-        ModelFactory(AES.ALILikeResVAE, dims=(1, 64, 64)),
-    ],
-    "PADChest": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(1, 64, 64), max_channels=512, depth=12, n_hidden=512
-        ),
-        ModelFactory(AES.ALILikeVAE, dims=(1, 64, 64)),
-    ],
-    "PCAM": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(3, 64, 64), max_channels=512, depth=12, n_hidden=512
-        ),
-        ModelFactory(AES.ALILikeVAE, dims=(3, 64, 64)),
-    ],
-    "DRD": [
-        ModelFactory(
-            AES.Generic_VAE, dims=(3, 64, 64), max_channels=512, depth=12, n_hidden=512
-        ),
-        ModelFactory(AES.ALILikeVAE, dims=(3, 64, 64)),
-    ],
-}
-
-dataset_reference_ALI = {
-    "NIHCC": [ModelFactory(ALI.ALIModel, dims=(1, 64, 64), n_hidden=512)],
-}
-
-dataset_reference_pcnns = {
-    "MNIST": [
-        ModelFactory(
-            PCNN.PixelCNN,
-            nr_resnet=5,
-            nr_filters=32,
-            input_channels=1,
-            nr_logistic_mix=5,
-        )
-    ],
-    "FashionMNIST": [
-        ModelFactory(
-            PCNN.PixelCNN,
-            nr_resnet=5,
-            nr_filters=64,
-            input_channels=1,
-            nr_logistic_mix=5,
-        )
-    ],
-    "CIFAR10": [
-        ModelFactory(
-            PCNN.PixelCNN,
-            nr_resnet=5,
-            nr_filters=160,
-            input_channels=3,
-            nr_logistic_mix=10,
-        )
-    ],
-    "CIFAR100": [
-        ModelFactory(
-            PCNN.PixelCNN,
-            nr_resnet=5,
-            nr_filters=160,
-            input_channels=3,
-            nr_logistic_mix=10,
-        )
-    ],
-    "TinyImagenetd32": [
-        ModelFactory(
-            PCNN.PixelCNN,
-            nr_resnet=5,
-            nr_filters=160,
-            input_channels=3,
-            nr_logistic_mix=10,
-        )
-    ],
-    "STL10d32": [
-        ModelFactory(
-            PCNN.PixelCNN,
-            nr_resnet=5,
-            nr_filters=160,
-            input_channels=3,
-            nr_logistic_mix=10,
-        )
-    ],
-}
-
-"""
-    This is where we keep a reference to all the methods.
-"""
-
-import methods.base_threshold as BT
-import methods.score_svm as SSVM
-import methods.logistic_threshold as KL
-import methods.mcdropout as MCD
-import methods.nearest_neighbor as KNN
-import methods.binary_classifier as BinClass
-import methods.deep_ensemble as DE
-import methods.odin as ODIN
-import methods.reconstruction_error as RE
-import methods.pixelcnn as PCNN
-import methods.openmax as OM
-import methods.ALI as ALI
-import methods.mahalanobis as MAHA
-
-all_methods = {
-    "prob_threshold": BT.ProbabilityThreshold,
-    "score_svm": SSVM.ScoreSVM,
-    "logistic_svm": KL.LogisticSVM,
-    "mcdropout": MCD.MCDropout,
-    "knn": KNN.KNNSVM,
-    "bceaeknn": KNN.BCEKNNSVM,
-    "mseaeknn": KNN.MSEKNNSVM,
-    "vaebceaeknn": KNN.VAEBCEKNNSVM,
-    "vaemseaeknn": KNN.VAEMSEKNNSVM,
-    "alibceaeknn": KNN.ALIBCEKNNSVM,
-    "alimseaeknn": KNN.ALIMSEKNNSVM,
-    "alivaebceaeknn": KNN.ALIVAEBCEKNNSVM,
-    "alivaemseaeknn": KNN.ALIVAEMSEKNNSVM,
-    "aliknnsvm": KNN.ALIKNNSVM,
-    "svknn": KNN.SVKNNSVM,
-    "binclass": BinClass.BinaryClassifier,
-    "deep_ensemble": DE.DeepEnsemble,
-    "odin": ODIN.ODIN,
-    "reconst_thresh": RE.ReconstructionThreshold,
-    "pixelcnn": PCNN.PixelCNN,
-    "openmax": OM.OpenMax,
-    "ALI_reconst": ALI.ALIReconstruction,
-    "Maha": MAHA.MahalanobisDetector,
-    "Maha1layer": MAHA.MahalanobisDetectorOneLayer,
-}
 
 ##################################################################
 # Do not change anything below, unless you know what you are doing.
@@ -515,7 +265,7 @@ all_methods = {
         'MNIST' : MNIST,
         ...
     }
-    
+
 """
 all_datasets = {}
 for dscls in all_dataset_classes:

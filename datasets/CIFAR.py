@@ -1,6 +1,6 @@
 import torch
 import torchvision.transforms as transforms
-from datasets import SubDataset, AbstractDomainInterface, ExpandRGBChannels
+from . import SubDataset, AbstractDomainInterface, ExpandRGBChannels
 from torchvision import datasets
 
 
@@ -15,9 +15,9 @@ def filter_indices(dataset, indices, filter_label):
 
 class CIFAR10(AbstractDomainInterface):
     """
-        CIFAR10: 50,000 train + 10,000 test. (3x32x32)
-        D1: (40,000 train + 10,000 valid) + (10,000 test)
-        D2 (Dv, Dt): 50,000 valid + 10,000 test.
+    CIFAR10: 50,000 train + 10,000 test. (3x32x32)
+    D1: (40,000 train + 10,000 valid) + (10,000 test)
+    D2 (Dv, Dt): 50,000 valid + 10,000 test.
     """
 
     dataset_path = "cifar10"
@@ -87,9 +87,9 @@ class CIFAR10(AbstractDomainInterface):
 
 class CIFAR100(AbstractDomainInterface):
     """
-        CIFAR100: 50,000 train + 10,000 test. (3x32x32)
-        D1: (40,000 train + 10,000 valid) + (10,000 test)
-        D2 (Dv , Dt): 50,000 valid + 10,000 test.
+    CIFAR100: 50,000 train + 10,000 test. (3x32x32)
+    D1: (40,000 train + 10,000 valid) + (10,000 test)
+    D2 (Dv , Dt): 50,000 valid + 10,000 test.
     """
 
     dataset_path = "cifar100"

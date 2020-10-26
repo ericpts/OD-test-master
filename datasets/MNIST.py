@@ -1,14 +1,14 @@
 import torch
 import torchvision.transforms as transforms
-from datasets import SubDataset, AbstractDomainInterface
+from . import SubDataset, AbstractDomainInterface
 from torchvision import datasets
 
 
 class MNIST(AbstractDomainInterface):
     """
-        MNIST: 60,000 train + 10,000 test.
-        Ds: (50,000 train + 10,000 valid) + (10,000 test)
-        Dv, Dt: 60,000 valid + 10,000 test.
+    MNIST: 60,000 train + 10,000 test.
+    Ds: (50,000 train + 10,000 valid) + (10,000 test)
+    Dv, Dt: 60,000 valid + 10,000 test.
     """
 
     dataset_path = "mnist"

@@ -1,7 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 import torch.utils.data as data
-from datasets import SubDataset, AbstractDomainInterface, ExpandRGBChannels
+from . import SubDataset, AbstractDomainInterface, ExpandRGBChannels
 import os
 import os.path as osp
 import csv

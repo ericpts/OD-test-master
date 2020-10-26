@@ -1,7 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 import torch.utils.data as data
-from datasets import SubDataset, AbstractDomainInterface, ExpandRGBChannels
+from . import SubDataset, AbstractDomainInterface, ExpandRGBChannels
 import os
 import os.path as osp
 import csv
@@ -318,7 +318,9 @@ class PADChestPA(PADChest):
     ):
         super(PADChestPA, self).__init__(
             root_path,
-            ["PA",],
+            [
+                "PA",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -343,7 +345,9 @@ class PADChestAP(PADChest):
     ):
         super(PADChestAP, self).__init__(
             root_path,
-            ["AP",],
+            [
+                "AP",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -368,7 +372,9 @@ class PADChestL(PADChest):
     ):
         super(PADChestL, self).__init__(
             root_path,
-            ["L",],
+            [
+                "L",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -393,7 +399,9 @@ class PADChestAPHorizontal(PADChest):
     ):
         super(PADChestAPHorizontal, self).__init__(
             root_path,
-            ["AP_horizontal",],
+            [
+                "AP_horizontal",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -418,7 +426,9 @@ class PADChestPED(PADChest):
     ):
         super(PADChestPED, self).__init__(
             root_path,
-            ["PED",],
+            [
+                "PED",
+            ],
             downsample,
             expand_channels,
             test_length,
@@ -741,7 +751,13 @@ class PADChestBinaryTrainSplit(PADChestSV):
 class PADChestBinaryValSplit(PADChestSV):
     def __init__(self, *args, **kwargs):
         kwargs.update(
-            {"binary": True, "test_length": 5000, "keep_in_classes": ["cardiomegaly",]}
+            {
+                "binary": True,
+                "test_length": 5000,
+                "keep_in_classes": [
+                    "cardiomegaly",
+                ],
+            }
         )
         super(PADChestBinaryValSplit, self).__init__(*args, **kwargs)
 

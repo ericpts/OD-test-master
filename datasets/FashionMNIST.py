@@ -2,14 +2,14 @@ import torch
 import torchvision.transforms as transforms
 from torchvision import datasets
 
-from datasets import SubDataset, AbstractDomainInterface
+from . import SubDataset, AbstractDomainInterface
 
 
 class FashionMNIST(AbstractDomainInterface):
     """
-        FashionMNIST: 60,000 train + 10,000 test.
-        D1: (50,000 train + 10,000 valid) + (10,000 test)
-        D2: 60,000 valid + 10,000 test.
+    FashionMNIST: 60,000 train + 10,000 test.
+    D1: (50,000 train + 10,000 valid) + (10,000 test)
+    D2: 60,000 valid + 10,000 test.
     """
 
     dataset_path = "fmnist"
