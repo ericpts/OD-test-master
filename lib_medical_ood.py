@@ -8,6 +8,7 @@ from medical_ood.datasets.PCAM import PCAM
 from medical_ood.datasets.malaria import Malaria
 from medical_ood.datasets.ANHIR import ANHIR
 from medical_ood.datasets.IDC import IDC
+from medical_ood.datasets.PADChest import PADChest, PADChestSV
 import tensorflow_datasets as tfds
 import medical_ood.datasets.MURA as MU
 import os
@@ -17,6 +18,11 @@ import tensorflow as tf
 import random
 import medical_ood.global_vars as Global
 import pickle
+
+
+def f_normalize_label(X, y):
+    y = tf.cast(y, tf.int32)
+    return X, y
 
 
 def torch_to_tf(D: torch.utils.data.Dataset) -> tf.data.Dataset:
@@ -156,13 +162,62 @@ def load_idc(split: str):
     return extract_split(D, split)
 
 
+def load_pc_for_nih(split: str):
+    datasets_root = Path(os.environ["SCRATCH"]) / ".datasets"
+    path = datasets_root / "PC"
+    classes = [
+        "AP",
+        "L",
+        "AP_horizontal",
+        "PED",
+    ]
+    return extract_split(PADChest(root_path=str(path), keep_class=classes), split)
+
+
+def load_pc_uc2(split: str):
+    datasets_root = Path(os.environ["SCRATCH"]) / ".datasets"
+    path = datasets_root / "PC"
+    classes = [
+        "AP",
+        "PA",
+        "AP_horizontal",
+        "PED",
+    ]
+    return extract_split(PADChest(root_path=str(path), keep_class=classes), split)
+
+
+def load_pc_uc3(split: str):
+    datasets_root = Path(os.environ["SCRATCH"]) / ".datasets"
+    path = datasets_root / "PC"
+    return extract_split(
+        PADChestSV(
+            root_path=str(path),
+            binary=True,
+            test_length=5000,
+            keep_in_classes=["cardiomegaly", "pneumothorax", "nodule", "mass"],
+        ),
+        split,
+    )
+
+
+def load_pc_id(split: str):
+    datasets_root = Path(os.environ["SCRATCH"]) / ".datasets"
+    path = datasets_root / "PC"
+    return extract_split(
+        PADChestSV(
+            root_path=str(path),
+            binary=True,
+            test_length=5000,
+            leave_out_classes=["cardiomegaly", "pneumothorax", "nodule", "mass"],
+        ),
+        split,
+    )
+
+
 def load_uc1(dataset: str, split: str) -> tf.data.Dataset:
     assert split == "test"
-
     params = dataset.split("/")[1:]
-
     base_path = Path(os.environ["SCRATCH"]) / ".datasets" / "medical_ood" / "uc1"
-
     for p in params:
         base_path = base_path / p
         if p == "rgb":
@@ -258,18 +313,20 @@ def load_uc1(dataset: str, split: str) -> tf.data.Dataset:
 
 
 def load_uc1_and_mura(dataset: str, split: str):
-    def label_to_int32(X, y):
-        y = tf.cast(y, tf.int32)
-        return X, y
-
     assert split == "test"
-    D = load_dataset("mura", "train").map(label_to_int32)
-    D = D.concatenate(load_uc1("uc1/gray", split).map(label_to_int32))
+    D = load_dataset("mura", "train").map(f_normalize_label)
+    D = D.concatenate(load_uc1("uc1/gray", split).map(f_normalize_label))
+    return D
+
+
+def load_uc1_and_malaria(dataset: str, split: str):
+    assert split == "test"
+    D = load_dataset("malaria", "train").map(f_normalize_label)
+    D = D.concatenate(load_uc1("uc1/rgb", split).map(f_normalize_label))
     return D
 
 
 def maybe_load_cached(dataset: str, split: str) -> Optional[tf.data.Dataset]:
-
     base_path = Path(os.environ["SCRATCH"]) / ".datasets" / "medical_ood" / dataset
     path = base_path / split
     if not path.exists():
@@ -300,10 +357,15 @@ DATASETS = {
     "riga": load_riga,
     "pcam": load_pcam,
     "malaria": load_malaria,
-    "anhir": load_anhir,
+    # "anhir": load_anhir,
     "idc": load_idc,
     "uc1_and_mura": load_uc1_and_mura,
+    "uc1_and_malaria": load_uc1_and_malaria,
     "uc1": load_uc1,
+    "pc_for_nih": load_pc_for_nih,
+    "pc_id": load_pc_id,
+    "pc_uc2": load_pc_uc2,
+    "pc_uc3": load_pc_uc3,
 }
 
 
@@ -334,12 +396,14 @@ def load_dataset(dataset: str, split: str) -> tf.data.Dataset:
     print(f"Loading {dataset}:{split}.")
     D = impl_load_dataset(dataset, split)
 
+    D = D.map(f_normalize_label)
+
     if dataset == "nih_ood":
         assert split == "test"
         # Test has 6299 examples, train has 10232.
         # Since this dataset is only ever used for test, put all samples
         # together.
-        D = D.concatenate(impl_load_dataset("nih_ood", "train"))
+        D = D.concatenate(impl_load_dataset("nih_ood", "train").map(f_normalize_label))
 
     if dataset == "nih_id":
         D = nih_to_binary(D)
@@ -358,10 +422,10 @@ def get_num_classes(dataset_name: str) -> int:
 
 
 def get_image_size(dataset_name: str):
-    if "nih" in dataset_name:
-        return (224, 224, 1)
-    else:
-        return (224, 224, 3)
+    D = load_dataset(dataset_name, "test")
+    for X, y in D:
+        break
+    return tuple(X.shape.as_list())
 
 
 def get_normalization(dataset_name: str):
@@ -373,7 +437,8 @@ def get_normalization(dataset_name: str):
 
 
 def preprocess():
-    for d in DATASETS.keys():
+    # for d in DATASETS.keys():
+    for d in ["pc_uc2", "pc_uc3"]:
         if "uc1" in d:
             continue
 

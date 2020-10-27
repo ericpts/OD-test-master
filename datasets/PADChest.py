@@ -52,7 +52,7 @@ class PADChestBase(data.Dataset):
         index_cache_path,
         source_dir,
         index_file="PADCHEST_chest_x_ray_images_labels_160K_01.02.19.csv",
-        image_dir="images-64",
+        image_dir="images-224",
         imsize=224,
         transforms=None,
         binary=False,
@@ -68,9 +68,7 @@ class PADChestBase(data.Dataset):
         self.imsize = imsize
         self.binary = binary
         if transforms is None:
-            self.transforms = transforms.Compose(
-                [transforms.Resize((imsize, imsize)), transforms.ToTensor()]
-            )
+            self.transforms = transforms.Compose([transforms.ToTensor()])
         else:
             self.transforms = transforms
 
@@ -115,7 +113,7 @@ class PADChestBase(data.Dataset):
         import tarfile
 
         tarsplits_list = [
-            "images-64.tar",
+            "images-224.tar",
         ]
         for tar_split in tarsplits_list:
             with tarfile.open(os.path.join(self.source_dir, tar_split)) as tar:
@@ -195,10 +193,8 @@ class PADChest(AbstractDomainInterface):
             )
             self.image_size = (downsample, downsample)
         else:
-            transform = transforms.Compose(
-                transform_list + [transforms.Resize((64, 64)), transforms.ToTensor()]
-            )
-            self.image_size = (64, 64)
+            transform = transforms.Compose(transform_list + [transforms.ToTensor()])
+            self.image_size = (224, 224)
 
         self.ds_all = PADChestBase(
             cache_path,
@@ -444,7 +440,7 @@ class PADChestSVBase(data.Dataset):
         index_cache_path,
         source_dir,
         index_file="PADCHEST_chest_x_ray_images_labels_160K_01.02.19.csv",
-        image_dir="images-299",
+        image_dir="images-224",
         imsize=224,
         transforms=None,
         binary=False,
@@ -511,7 +507,7 @@ class PADChestSVBase(data.Dataset):
             ]
         else:
             tarsplits_list = [
-                "images-299.tar.gz",
+                "images-224.tar.gz",
             ]
         for tar_split in tarsplits_list:
             with tarfile.open(os.path.join(self.source_dir, tar_split)) as tar:
@@ -596,7 +592,7 @@ class PADChestSV(AbstractDomainInterface):
             ]
         else:
             transform_list = []
-        img_dir = "images-299"
+        img_dir = "images-224"
         if downsample is not None:
             print("downsampling to", downsample)
             transform = transforms.Compose(
@@ -607,9 +603,7 @@ class PADChestSV(AbstractDomainInterface):
             if downsample == 64:
                 img_dir = "images-64"
         else:
-            transform = transforms.Compose(
-                transform_list + [transforms.Resize((224, 224)), transforms.ToTensor()]
-            )
+            transform = transforms.Compose(transform_list + [transforms.ToTensor()])
             self.image_size = (224, 224)
 
         self.ds_all = PADChestSVBase(
