@@ -332,7 +332,10 @@ def maybe_load_cached(dataset: str, split: str) -> Optional[tf.data.Dataset]:
     if not path.exists():
         return None
 
-    if "nih" in dataset:
+    if (base_path / "element_spec.pkl").exists():
+        with (base_path / "element_spec.pkl").open("r+b") as f:
+            element_spec = pickle.load(f)
+    elif "nih" in dataset:
         element_spec = (
             tf.TensorSpec(shape=(224, 224, 1), dtype=tf.float32),
             tf.TensorSpec(shape=(15,), dtype=tf.int64),
@@ -343,8 +346,7 @@ def maybe_load_cached(dataset: str, split: str) -> Optional[tf.data.Dataset]:
             tf.TensorSpec(shape=(7,), dtype=tf.int64),
         )
     else:
-        with (base_path / "element_spec.pkl").open("r+b") as f:
-            element_spec = pickle.load(f)
+        assert False
     return tf.data.experimental.load(str(path), element_spec)
 
 
@@ -437,8 +439,7 @@ def get_normalization(dataset_name: str):
 
 
 def preprocess():
-    # for d in DATASETS.keys():
-    for d in ["pc_uc2", "pc_uc3"]:
+    for d in DATASETS.keys():
         if "uc1" in d:
             continue
 
