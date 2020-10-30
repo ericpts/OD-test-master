@@ -374,7 +374,6 @@ DATASETS = {
 def impl_load_dataset(dataset: str, split: str) -> tf.data.Dataset:
     D = maybe_load_cached(dataset, split)
     if D is not None:
-        print("Reusing cached dataset.")
         return D
 
     raw_name = dataset.split("/")[0]
@@ -385,17 +384,7 @@ def impl_load_dataset(dataset: str, split: str) -> tf.data.Dataset:
     return f(split)
 
 
-def nih_to_binary(D: tf.data.Dataset) -> tf.data.Dataset:
-    def f_map(X, y):
-        y = y[7]
-        return X, y
-
-    D = D.map(f_map)
-    return D
-
-
 def load_dataset(dataset: str, split: str) -> tf.data.Dataset:
-    print(f"Loading {dataset}:{split}.")
     D = impl_load_dataset(dataset, split)
 
     D = D.map(f_normalize_label)
@@ -407,8 +396,16 @@ def load_dataset(dataset: str, split: str) -> tf.data.Dataset:
         # together.
         D = D.concatenate(impl_load_dataset("nih_ood", "train").map(f_normalize_label))
 
-    if dataset == "nih_id":
-        D = nih_to_binary(D)
+    def to_binary(X, y):
+        if len(y.shape) > 0:
+            # NIH datasets have length 15, and 7 is the 'healthy' class.
+            if y.shape[0] == 15:
+                y = y[7]
+            else:
+                y = -1
+        return X, y
+
+    D = D.map(to_binary)
 
     return D
 
@@ -438,8 +435,10 @@ def get_normalization(dataset_name: str):
     assert False
 
 
-def preprocess():
-    for d in DATASETS.keys():
+def preprocess(datasets=None):
+    if datasets is None:
+        datasets = DATASETS.keys()
+    for d in datasets:
         if "uc1" in d:
             continue
 
