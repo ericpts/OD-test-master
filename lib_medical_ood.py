@@ -21,12 +21,22 @@ import pickle
 
 
 def f_normalize_label(X, y):
+    if len(y.shape) > 0:
+        # NIH datasets have length 15, and 7 is the 'healthy' class.
+        if y.shape[0] == 15:
+            y = y[7]
+        else:
+            y = -1
+
     y = tf.cast(y, tf.int32)
+
     return X, y
 
 
-def torch_to_tf(D: torch.utils.data.Dataset) -> tf.data.Dataset:
-    loader = torch.utils.data.DataLoader(D, batch_size=len(D), num_workers=20)
+def torch_to_tf(D: torch.utils.data.Dataset, max_size: int = 60_000) -> tf.data.Dataset:
+    loader = torch.utils.data.DataLoader(
+        D, batch_size=min(max_size, len(D)), num_workers=20
+    )
     for X, y in loader:
         pass
 
@@ -240,13 +250,15 @@ def load_uc1(dataset: str, split: str) -> tf.data.Dataset:
         "UniformNoise",
         "NormalNoise",
         "NotMNIST",
-        "TinyImagenet",
+        # "TinyImagenet",
         "MNIST",
         "FashionMNIST",
         "CIFAR100",
         "CIFAR10",
         "STL10",
     ]
+
+    take_per_dset = 10_000 // len(uc1s) + 1
 
     def to_fake_label(X, y):
         y = -1
@@ -261,49 +273,47 @@ def load_uc1(dataset: str, split: str) -> tf.data.Dataset:
 
         cache_path = base_path / d
 
-        if not (cache_path / "dataset").exists():
-            print(f"Generating dataset {d}")
-            if "dataset_path" in dataset.__dict__:
-                D = dataset(
-                    root_path=(
-                        Path(os.environ["SCRATCH"])
-                        / ".datasets"
-                        / "medical_ood"
-                        / "uc1"
-                        / dataset.dataset_path
-                    ),
-                    download=True,
-                    extract=True,
-                )
-            else:
-                D = dataset()
-            ds = []
-            for split in [
-                D.get_D2_valid(D_for_valid),
-                D.get_D2_test(D_for_valid),
-            ]:
-                ds.append(torch_to_tf(split))
+        print(f"Generating dataset {d}")
+        if "dataset_path" in dataset.__dict__:
+            D = dataset(
+                root_path=(
+                    Path(os.environ["SCRATCH"])
+                    / ".datasets"
+                    / "medical_ood"
+                    / "uc1"
+                    / dataset.dataset_path
+                ),
+                download=True,
+                extract=True,
+            )
+        else:
+            D = dataset()
+        ds = []
+        rem = take_per_dset
+        for split in [
+            D.get_D2_test(D_for_valid),
+            D.get_D2_valid(D_for_valid),
+        ]:
+            cur_d = torch_to_tf(split, max_size=rem)
+            rem -= len(cur_d)
+            ds.append(cur_d)
+            if rem == 0:
+                break
 
-            D = ds[0]
-            for x in ds[1:]:
-                D = D.concatenate(x)
+        D = ds[0]
+        for x in ds[1:]:
+            D = D.concatenate(x)
 
-            D = D.map(to_fake_label)
-
-            tf.data.experimental.save(D, str(cache_path / "dataset"))
-            with (cache_path / "element_spec.pkl").open("w+b") as f:
-                pickle.dump(D.element_spec, f)
-
-        with (cache_path / "element_spec.pkl").open("r+b") as f:
-            element_spec = pickle.load(f)
-
-        D = tf.data.experimental.load(str(cache_path / "dataset"), element_spec)
+        D = D.take(take_per_dset)
+        D = D.map(to_fake_label)
 
         D_for_uc1.append(D)
 
     D = D_for_uc1[0]
     for d in D_for_uc1[1:]:
         D = D.concatenate(d)
+    D = D.shuffle(15_000)
+    D = D.take(10_000)
 
     tf.data.experimental.save(D, str(combined_cache / "dataset"))
     with (combined_cache / "element_spec.pkl").open("w+b") as f:
@@ -312,28 +322,27 @@ def load_uc1(dataset: str, split: str) -> tf.data.Dataset:
     return D
 
 
-def load_uc1_and_mura(dataset: str, split: str):
+def load_uc1_and_mura(split: str):
     assert split == "test"
-    D = load_dataset("mura", "train").map(f_normalize_label)
-    D = D.concatenate(load_uc1("uc1/gray", split).map(f_normalize_label))
+    D = load_dataset("mura", "train").take(5_000)
+    D = D.concatenate(load_uc1("uc1/gray", split).take(5_000).map(f_normalize_label))
     return D
 
 
-def load_uc1_and_malaria(dataset: str, split: str):
+def load_uc1_and_malaria(split: str):
     assert split == "test"
-    D = load_dataset("malaria", "train").map(f_normalize_label)
-    D = D.concatenate(load_uc1("uc1/rgb", split).map(f_normalize_label))
+    D = load_dataset("malaria", "train").take(5_000)
+    D = D.concatenate(load_uc1("uc1/rgb", split).take(5_000).map(f_normalize_label))
     return D
 
 
 def maybe_load_cached(dataset: str, split: str) -> Optional[tf.data.Dataset]:
-    base_path = Path(os.environ["SCRATCH"]) / ".datasets" / "medical_ood" / dataset
-    path = base_path / split
+    path = Path(os.environ["SCRATCH"]) / ".datasets" / "medical_ood" / dataset / split
     if not path.exists():
         return None
 
-    if (base_path / "element_spec.pkl").exists():
-        with (base_path / "element_spec.pkl").open("r+b") as f:
+    if (path / "element_spec.pkl").exists():
+        with (path / "element_spec.pkl").open("r+b") as f:
             element_spec = pickle.load(f)
     elif "nih" in dataset:
         element_spec = (
@@ -347,7 +356,7 @@ def maybe_load_cached(dataset: str, split: str) -> Optional[tf.data.Dataset]:
         )
     else:
         assert False
-    return tf.data.experimental.load(str(path), element_spec)
+    return tf.data.experimental.load(str(path / "dataset"), element_spec)
 
 
 DATASETS = {
@@ -379,33 +388,35 @@ def impl_load_dataset(dataset: str, split: str) -> tf.data.Dataset:
     raw_name = dataset.split("/")[0]
     assert raw_name in DATASETS, f"Unrecognized dataset: {dataset}"
     f = DATASETS[raw_name]
-    if "uc1" in raw_name:
-        return f(dataset, split)
+    if raw_name == "uc1":
+        return load_uc1(dataset, split)
     return f(split)
 
 
 def load_dataset(dataset: str, split: str) -> tf.data.Dataset:
     D = impl_load_dataset(dataset, split)
-
     D = D.map(f_normalize_label)
 
-    if dataset == "nih_ood":
-        assert split == "test"
-        # Test has 6299 examples, train has 10232.
+    if dataset in [
+        "nih_ood",
+        "pc_uc2",
+        "drimdb",
+        "riga",
+        "pc_for_nih",
+        "pc_uc3",
+    ]:
         # Since this dataset is only ever used for test, put all samples
         # together.
-        D = D.concatenate(impl_load_dataset("nih_ood", "train").map(f_normalize_label))
+        assert split == "test"
+        for d in ["train", "validation"]:
+            D = D.concatenate(impl_load_dataset(dataset, d).map(f_normalize_label))
 
-    def to_binary(X, y):
-        if len(y.shape) > 0:
-            # NIH datasets have length 15, and 7 is the 'healthy' class.
-            if y.shape[0] == 15:
-                y = y[7]
-            else:
-                y = -1
-        return X, y
+        D = D.take(10_000)
 
-    D = D.map(to_binary)
+    if dataset in ["pc_id", "drd"] and split == "test":
+        D = D.concatenate(
+            impl_load_dataset(dataset, "validation").map(f_normalize_label)
+        )
 
     return D
 
@@ -435,22 +446,23 @@ def get_normalization(dataset_name: str):
     assert False
 
 
-def preprocess(datasets=None):
+def preprocess(datasets=None, splits=["train", "test", "validation"]):
     if datasets is None:
         datasets = DATASETS.keys()
     for d in datasets:
         if "uc1" in d:
             continue
 
-        base_path = Path(os.environ["SCRATCH"]) / ".datasets" / "medical_ood" / d
-
-        splits = ["train", "test", "validation"]
         if "mura" in d:
             splits = ["train"]
 
         for split in splits:
             if maybe_load_cached(d, split) is not None:
                 continue
+
+            cur_path = (
+                Path(os.environ["SCRATCH"]) / ".datasets" / "medical_ood" / d / split
+            )
             print(f"Preprocessing {d}/{split}... ", end="", flush=True)
             D = impl_load_dataset(d, split)
 
@@ -459,13 +471,45 @@ def preprocess(datasets=None):
 
             tf.data.experimental.save(
                 D,
-                str(base_path / split),
+                str(cur_path / "dataset"),
             )
             print("done!")
 
-            with (base_path / "element_spec.pkl").open("w+b") as f:
+            with (cur_path / "element_spec.pkl").open("w+b") as f:
                 pickle.dump(D.element_spec, f)
 
 
+def test():
+    print("OOD datasets:")
+    for d in [
+        "drimdb",
+        "nih_ood",
+        "pc_for_nih",
+        "pc_uc2",
+        "pc_uc3",
+        "riga",
+        "uc1_and_malaria",
+        "uc1_and_mura",
+    ]:
+        D = load_dataset(d, "test")
+        n = 0
+        for X, y in D:
+            assert len(y.shape) == 0
+            n += 1
+        print(f"{d}/test: {n}")
+
+    print("ID datasets:")
+    for d in ["nih_id", "pc_id", "pcam", "drd"]:
+        for s in ["train", "test"]:
+            print(f"{d}: ", end="")
+            D = load_dataset(d, s)
+            n = 0
+            for X, y in D:
+                assert len(y.shape) == 0
+                n += 1
+            print(f"{s}({n}) ", end="")
+        print()
+
+
 if __name__ == "__main__":
-    preprocess()
+    test()
