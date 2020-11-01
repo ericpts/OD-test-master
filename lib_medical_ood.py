@@ -336,6 +336,13 @@ def load_uc1_and_malaria(split: str):
     return D
 
 
+def load_idc_and_anhir(split: str):
+    assert split == "test"
+    D = load_dataset("idc", "test")
+    D = D.concatenate(load_dataset("anhir", "test"))
+    return D
+
+
 def maybe_load_cached(dataset: str, split: str) -> Optional[tf.data.Dataset]:
     path = Path(os.environ["SCRATCH"]) / ".datasets" / "medical_ood" / dataset / split
     if not path.exists():
@@ -368,7 +375,7 @@ DATASETS = {
     "riga": load_riga,
     "pcam": load_pcam,
     "malaria": load_malaria,
-    # "anhir": load_anhir,
+    "anhir": load_anhir,
     "idc": load_idc,
     "uc1_and_mura": load_uc1_and_mura,
     "uc1_and_malaria": load_uc1_and_malaria,
@@ -377,10 +384,14 @@ DATASETS = {
     "pc_id": load_pc_id,
     "pc_uc2": load_pc_uc2,
     "pc_uc3": load_pc_uc3,
+    "idc_and_anhir": load_idc_and_anhir,
 }
 
 
 def impl_load_dataset(dataset: str, split: str) -> tf.data.Dataset:
+    if dataset == "idc" and split == "train":
+        split = "validation"
+
     D = maybe_load_cached(dataset, split)
     if D is not None:
         return D
@@ -404,6 +415,7 @@ def load_dataset(dataset: str, split: str) -> tf.data.Dataset:
         "riga",
         "pc_for_nih",
         "pc_uc3",
+        "anhir",
     ]:
         # Since this dataset is only ever used for test, put all samples
         # together.

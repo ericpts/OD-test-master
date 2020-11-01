@@ -8,6 +8,8 @@ import pickle
 
 import numpy as np
 
+Image.MAX_IMAGE_PIXELS = 334237696
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source_dir", default="E:\\ANHIR\\")
@@ -38,7 +40,7 @@ if __name__ == "__main__":
                     labels.append(subdir)
                     with open(osp.join(dirpath, filename), "rb") as f:
                         with Image.open(f) as img:
-                            # img = img.resize((224, 224))
+                            img = img.resize((224, 224))
                             # fn = filename.replace(" ", "_")
                             A.append(np.array(img))
 
