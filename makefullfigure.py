@@ -3,10 +3,11 @@ First run tsne_encoder.py until the visualizations look good, and then set tsne_
 """
 
 
+import time
 import numpy as np
-import csv, os
-import torch
+import os
 import matplotlib
+import mlflow
 
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -14,19 +15,34 @@ import pandas as pd
 import seaborn as sns
 import argparse
 import os
-import models as Models
-from easydict import EasyDict
 import _pickle
 from process_results_multiple import weighted_std
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
 import skimage.io as skio
+import skimage.transform as skts
 
 
 from matplotlib.colors import ListedColormap
 
 
-def plot_tsne(exp_path, uc, ax, color_space=None, n_color_max=30, cat2color=None):
+def retry(f):
+    while True:
+        try:
+            return f()
+        except:
+            time.sleep(5)
+            print("Retrying mlflow.")
+
+
+def setup_mlflow():
+    os.environ["MLFLOW_TRACKING_USERNAME"] = "exp-01.mlflow-yang.ericst"
+    os.environ["MLFLOW_TRACKING_PASSWORD"] = "parolaeric"
+    remote_server_uri = "https://exp-01.mlflow-yang.inf.ethz.ch"
+    retry(lambda: mlflow.set_tracking_uri(remote_server_uri))
+
+
+def plot_tsne(exp_path, uc, ax, color_space=None, n_color_max=20, cat2color=None):
     X_embedded = None
     ALL_Y = None
     Cat2Y = None
@@ -47,7 +63,7 @@ def plot_tsne(exp_path, uc, ax, color_space=None, n_color_max=30, cat2color=None
 
         if color_space is None:
             assert cat2color is None
-            color_space = sns.color_palette("hls", 20)
+            color_space = sns.color_palette("hls", n_color_max)
             cat2color = {}
             i = 0
             for y, cat in Y2Cat.items():
@@ -88,14 +104,88 @@ def plot_tsne(exp_path, uc, ax, color_space=None, n_color_max=30, cat2color=None
     return ax, color_space, cat2color
 
 
-def plot_image(file_path, ax):
+def plot_image(file_path, ax, uc):
     img = skio.imread(file_path)
+    long_edge = max(img.shape[0], img.shape[1])
+    img = skts.resize(img, (long_edge, long_edge))
     if len(img.shape) > 2:
         ax.imshow(img)
     else:
         ax.imshow(img, cmap="gray")
     ax.set_axis_off()
+    ax.annotate(
+        "Usecase %d" % uc,
+        xy=(0.0, 0.5),
+        xycoords="axes fraction",
+        fontsize=5,
+        xytext=(-5, 12),
+        textcoords="offset points",
+        ha="center",
+        va="baseline",
+        rotation=90,
+    )
+    # ax.set_ylabel("Usecase %d" % uc)
     return ax
+
+
+def load_reto(d1, uc):
+    if d1 == "NIHCC":
+        D_id = "nih_id"
+        D_ood = {
+            1: "uc1_and_mura",
+            2: "pc_for_nih",
+            3: "nih_ood",
+        }[uc]
+    elif d1 == "PAD":
+        D_id = "pc_id"
+        D_ood = {
+            1: "uc1_and_mura",
+            2: "pc_uc2",
+            3: "pc_uc3",
+        }[uc]
+    elif d1 == "DRD":
+        D_id = "drd"
+        D_ood = {
+            1: "uc1_rgb",
+            2: "drimdb",
+            3: "riga",
+        }[uc]
+    else:
+        assert False, f"Unknown dataset: {d1}"
+
+    exp_name = f"{D_id}_vs_{D_ood}"
+
+    exp = retry(lambda: mlflow.get_experiment_by_name(exp_name))
+    runs = retry(lambda: mlflow.list_run_infos(exp.experiment_id))
+
+    stats = {
+        "auroc": [],
+        "aupr": [],
+    }
+
+    for run_info in runs:
+        run = retry(lambda: mlflow.get_run(run_info.run_id))
+        if run.data.params.get("ensemble_type") != "assign_one_label":
+            continue
+
+        if run.data.params.get("use_pretrained_model") != "False":
+            continue
+
+        if run.data.params.get("model_arch") != "densenet":
+            continue
+
+        if run.data.tags.get("goal") != "final":
+            continue
+
+        metrics = run.data.metrics
+
+        for k, v in {
+            "auroc": metrics["heur_auroc_avg_diff"],
+            "aupr": metrics["heur_aupr_avg_diff"],
+        }.items():
+            stats[k].append(v)
+
+    return {k: np.mean(v) for k, v in stats.items()}
 
 
 def plot_result(
@@ -108,51 +198,84 @@ def plot_result(
     with_x_tick=False,
     keep_only_handles=None,
     alias=None,
+    color_scheme="rainbow",
+    legend=False,
+    sort_separate=True,
 ):
     csv_data = np.load(os.path.join(exp_path, "data_UC%d_%s.npy" % (uc, d1)))
     assert os.path.isfile(os.path.join(exp_path, "headers_UC%d_%s.pkl" % (uc, d1)))
     with open(os.path.join(exp_path, "headers_UC%d_%s.pkl" % (uc, d1)), "rb") as fp:
         csv_headers = _pickle.load(fp)
+
+    csv_headers[0].append("RETO")
     method_handles = csv_headers[0]
+
     weights = csv_data[0]
-    uc_acc = csv_data[1] * 100
     uc_roc = csv_data[2] * 100
     uc_prc = csv_data[3] * 100
 
-    accm = np.average(uc_acc, axis=(1, 2), weights=weights)
-    rocm = np.average(uc_roc, axis=(1, 2), weights=weights)
-    prcm = np.average(uc_prc, axis=(1, 2), weights=weights)
-    accv = weighted_std(uc_acc, weights, axis=(1, 2))
-    rocv = weighted_std(uc_roc, weights, axis=(1, 2))
-    prcv = weighted_std(uc_prc, weights, axis=(1, 2))
+    if len(uc_roc.shape) == 3:
+        rocm = np.average(uc_roc, axis=(1, 2), weights=weights)
+        prcm = np.average(uc_prc, axis=(1, 2), weights=weights)
+        rocv = weighted_std(uc_roc, weights, axis=(1, 2))
+        prcv = weighted_std(uc_prc, weights, axis=(1, 2))
+    else:
+        new_weights = np.zeros_like(uc_roc)
+        for i in range((uc_roc.shape[0])):
+            for j in range((uc_roc.shape[1])):
+                for k in range((uc_roc.shape[2])):
+                    n = int(weights[i, j, k, 0])
+                    for l in range(n):
+                        new_weights[i, j, k, l] = 1
+        rocm = np.average(uc_roc, axis=(1, 2, 3), weights=new_weights)
+        prcm = np.average(uc_prc, axis=(1, 2, 3), weights=new_weights)
+        rocv = (
+            weighted_std(uc_roc, new_weights, axis=(1, 2, 3))
+            * 1.96
+            / np.sqrt(new_weights.sum((1, 2, 3)))
+        )
+        prcv = (
+            weighted_std(uc_prc, new_weights, axis=(1, 2, 3))
+            * 1.96
+            / np.sqrt(new_weights.sum((1, 2, 3)))
+        )
+
+    reto_data = load_reto(d1, uc)
+
+    rocm = np.append(rocm, reto_data["auroc"] * 100)
+    rocv = np.append(rocv, 0.0)
+
+    prcm = np.append(prcm, reto_data["aupr"] * 100)
+    prcv = np.append(prcv, 0.0)
 
     if order is None:
-        group1_handles_inds = []
-        group2_handles_inds = []
-        for i, handle in enumerate(method_handles):
-            if ("ae" in handle.lower()) or ("ali" in handle.lower()):
-                group2_handles_inds.append(i)
-            else:
-                group1_handles_inds.append(i)
-        group1_sum = (
-            accm[group1_handles_inds]
-            + rocm[group1_handles_inds]
-            + prcm[group1_handles_inds]
-        )
-        group2_sum = (
-            accm[group2_handles_inds]
-            + rocm[group2_handles_inds]
-            + prcm[group2_handles_inds]
-        )
-
-        sorted_inds_g1 = [group1_handles_inds[i] for i in np.argsort(group1_sum)]
-        sorted_inds_g2 = [group2_handles_inds[i] for i in np.argsort(group2_sum)]
-        assert type(sorted_inds_g1) is list
-        full_inds = np.array(sorted_inds_g1 + sorted_inds_g2)
+        if sort_separate:
+            group1_handles_inds = []
+            group2_handles_inds = []
+            for i, handle in enumerate(method_handles):
+                if ("ae" in handle.lower()) or ("ali" in handle.lower()):
+                    group2_handles_inds.append(i)
+                else:
+                    group1_handles_inds.append(i)
+            group1_sum = rocm[group1_handles_inds] + prcm[group1_handles_inds]
+            group2_sum = rocm[group2_handles_inds] + prcm[group2_handles_inds]
+            sorted_inds_g1 = [group1_handles_inds[i] for i in np.argsort(group1_sum)]
+            sorted_inds_g2 = [group2_handles_inds[i] for i in np.argsort(group2_sum)]
+            assert type(sorted_inds_g1) is list
+            full_inds = np.array(sorted_inds_g1 + sorted_inds_g2)
+        else:
+            group_sums = rocm  # + prcm
+            sorted_inds_g1 = np.argsort(group_sums)
+            # assert type(sorted_inds_g1) is list
+            full_inds = np.array(sorted_inds_g1)
     else:
-        full_inds = order
-    sorted_accm = accm[full_inds]
-    sorted_accv = accv[full_inds]
+        if type(order) is dict:
+            order = [order[m] for m in method_handles]
+            full_inds = np.zeros(len(order), dtype=int)
+            for i, j in enumerate(order):
+                full_inds[j] = i
+        else:
+            full_inds = np.array(order)
 
     sorted_rocm = rocm[full_inds]
     sorted_rocv = rocv[full_inds]
@@ -166,7 +289,7 @@ def plot_result(
         upper = []
         lower = []
         for n in range(m.shape[0]):
-            if m[n] - v[n] < 0.0:
+            if m[n] - v[n] < 30.0:
                 lower.append(m[n])
             else:
                 lower.append(v[n])
@@ -176,7 +299,6 @@ def plot_result(
                 upper.append(v[n])
         return np.array([lower, upper])
 
-    pp_accv = proc_var(sorted_accm, sorted_accv)
     pp_rocv = proc_var(sorted_rocm, sorted_rocv)
     pp_prcv = proc_var(sorted_prcm, sorted_prcv)
 
@@ -188,52 +310,129 @@ def plot_result(
             else:
                 print("leaving out %s" % method)
         keep_inds = np.array(keep_inds)
-        sorted_accm = sorted_accm[keep_inds]
         sorted_rocm = sorted_rocm[keep_inds]
         sorted_prcm = sorted_prcm[keep_inds]
-        pp_accv = pp_accv[:, keep_inds]
         pp_rocv = pp_rocv[:, keep_inds]
         pp_prcv = pp_prcv[:, keep_inds]
         sorted_method_handles = [sorted_method_handles[i] for i in keep_inds]
         full_inds = full_inds[keep_inds]
 
-    ind = np.arange(len(sorted_accm))  # the x locations for the groups
-    width = 0.25  # the width of the bars
+    ind = np.arange(len(sorted_rocm))  # the x locations for the groups
+    width = 0.35  # the width of the bars
 
-    rb = cm.get_cmap("rainbow")
-    grad = np.linspace(0, 1, len(sorted_accm))
-    colors = [rb(g) for g in grad]
-
-    if c_order is None:
-        this_order = np.arange(0, len(full_inds))
-        c_order = {}
-        for c, i in zip(this_order, full_inds):
-            c_order[i] = c
+    group_inds0 = []
+    group_inds1 = []
+    group_inds2 = []
+    if color_scheme == "rgb":
+        sorted_colors = [(0.9, 0.0, 0.0, 1.0) for i in sorted_method_handles]
+        sorted_colors_0 = [(0.1, 0.9, 0.1, 1.0) for i in sorted_method_handles]
+        # sorted_colors_1 = [(0.0, 0.2, 0.8, 1.0) for i in sorted_method_handles]
+    elif color_scheme == "bluered":
+        sorted_colors = []
+        for i, handle in enumerate(sorted_method_handles):
+            if ("ae" in handle.lower()) or ("ali" in handle.lower()):
+                sorted_colors.append((0.9, 0.1, 0.0, 1.0))
+                group_inds1.append(i)
+            elif handle == "knn/1" or handle == "knn/8":
+                sorted_colors.append((0.0, 0.8, 0.2, 1.0))
+                group_inds2.append(i)
+            else:
+                sorted_colors.append((0.1, 0.2, 0.9, 1.0))
+                group_inds0.append(i)
+        sorted_colors_0 = [
+            (
+                color[0],
+                color[1],
+                color[2],
+                0.3,
+            )
+            for color in sorted_colors
+        ]
+        # sorted_colors_1 = [(color[0], color[1], color[2], 0.7,) for color in sorted_colors]
     else:
-        this_order = [c_order[i] for i in full_inds]
+        rb = cm.get_cmap("rainbow")
+        grad = np.linspace(0, 1, len(sorted_rocm))
+        colors = [rb(g) for g in grad]
+        if c_order is None:
+            this_order = np.arange(0, len(full_inds))
+            c_order = {}
+            for c, i in zip(this_order, full_inds):
+                c_order[i] = c
+        else:
+            this_order = [c_order[i] for i in full_inds]
 
-    sorted_colors = [colors[i] for i in this_order]
-    sorted_colors_0 = [(color[0], color[1], color[2], 0.3,) for color in sorted_colors]
-    sorted_colors_1 = [(color[0], color[1], color[2], 0.7,) for color in sorted_colors]
+        sorted_colors = [colors[i] for i in this_order]
+        sorted_colors_0 = [
+            (
+                color[0],
+                color[1],
+                color[2],
+                0.3,
+            )
+            for color in sorted_colors
+        ]
+        # sorted_colors_1 = [(color[0], color[1], color[2], 0.7,) for color in sorted_colors]
+    sorted_colors = np.array(sorted_colors)
+    sorted_colors_0 = np.array(sorted_colors_0)
+    group_inds0 = np.array(group_inds0)
+    group_inds1 = np.array(group_inds1)
+    group_inds2 = np.array(group_inds2)
 
-    rects1 = ax.bar(
-        ind - width * 0.99,
-        sorted_accm,
+    rects10 = ax.bar(
+        ind[group_inds0] - width * 0.5,
+        sorted_rocm[group_inds0],
         width,
-        yerr=pp_accv,
-        label="Accuracy",
-        color=sorted_colors_1,
+        yerr=pp_rocv[:, group_inds0],
+        label="AUROC",
+        color=sorted_colors_0[group_inds0],
+        error_kw={"elinewidth": 0.8},
     )
-    rects2 = ax.bar(
-        ind, sorted_rocm, width, yerr=pp_rocv, label="AUROC", color=sorted_colors_0
-    )
-    rects3 = ax.bar(
-        ind + width * 0.99,
-        sorted_prcm,
+    rects11 = ax.bar(
+        ind[group_inds1] - width * 0.5,
+        sorted_rocm[group_inds1],
         width,
-        yerr=pp_prcv,
+        yerr=pp_rocv[:, group_inds1],
+        label="AUROC",
+        color=sorted_colors_0[group_inds1],
+        error_kw={"elinewidth": 0.8},
+    )
+    rects12 = ax.bar(
+        ind[group_inds2] - width * 0.5,
+        sorted_rocm[group_inds2],
+        width,
+        yerr=pp_rocv[:, group_inds2],
+        label="AUROC",
+        color=sorted_colors_0[group_inds2],
+        error_kw={"elinewidth": 0.8},
+    )
+    # rects2 = ax.bar(ind, sorted_rocm, width, yerr=pp_rocv,
+    #                label='AUROC', color=sorted_colors_0, error_kw={'elinewidth':0.8})
+    rects30 = ax.bar(
+        ind[group_inds0] + width * 0.5,
+        sorted_prcm[group_inds0],
+        width,
+        yerr=pp_prcv[:, group_inds0],
         label="AUPRC",
-        color=sorted_colors,
+        color=sorted_colors[group_inds0],
+        error_kw={"elinewidth": 0.8},
+    )
+    rects31 = ax.bar(
+        ind[group_inds1] + width * 0.5,
+        sorted_prcm[group_inds1],
+        width,
+        yerr=pp_prcv[:, group_inds1],
+        label="AUPRC",
+        color=sorted_colors[group_inds1],
+        error_kw={"elinewidth": 0.8},
+    )
+    rects32 = ax.bar(
+        ind[group_inds2] + width * 0.5,
+        sorted_prcm[group_inds2],
+        width,
+        yerr=pp_prcv[:, group_inds2],
+        label="AUPRC",
+        color=sorted_colors[group_inds2],
+        error_kw={"elinewidth": 0.8},
     )
     if with_x_tick:
         ax.set_xticks(ind)
@@ -250,24 +449,175 @@ def plot_result(
     else:
         ax.set_xticks([])
         ax.set_xticklabels([])
-    ax.set_yticks(np.linspace(0, 100, 3))
-    ax.set_ylim(0, 110)
+    ax.set_yticks(np.linspace(50, 100, 3))
+    ax.set_ylim(30, 110)
+    if legend:
+        ax.legend(
+            [rects12, rects32, rects10, rects30, rects11, rects31],
+            [
+                "AUROC, data-only",
+                "AUPRC, data-only",
+                "AUROC, classifier only",
+                "AUPRC, classifier only",
+                "AUROC, with auxilary NN",
+                "AUPRC, with auxilary NN",
+            ],
+            loc="upper left",
+            ncol=3,
+            markerscale=0.6,
+            labelspacing=0.3,  # default 0.5
+            columnspacing=1.0,  # default 2.0
+            borderaxespad=0.3,  # default 0.5
+        )
+    ax.axhline(y=50, linewidth=0.5, color=(0.3, 0.3, 0.35, 0.8), ls="--")
     # ax.legend()
     return ax, full_inds, c_order
 
 
 if __name__ == "__main__":
+    setup_mlflow()
     PREVIEW_DOUBLE = True
-    # fig, ax = plt.subplots(3,2)
-    # Plot figure with subplots of different sizes
-    if PREVIEW_DOUBLE:
-        fig = plt.figure(1, figsize=(6, 3.5), dpi=109 * 2)
-    else:
-        fig = plt.figure(
-            1, figsize=(6, 3.5), dpi=109
-        )  # dpi set to match preview to print size on a 14 inch tall, 1440p monitor.
-    # set up subplot grid
-    gridspec.GridSpec(3, 6)  # nrow by n col         # effectively 1 inch squres
+    parser = argparse.ArgumentParser()
+    parser.add_argument("output_name", type=str, help="save images")
+    parser.add_argument(
+        "--dataset", type=str, default="NIHCC", help="PAD or NIHCC or DRD or PCAM"
+    )
+
+    args = parser.parse_args()
+    SAVE_NAME = args.output_name  # "DRD_MAINFIG"#"PAD_MAINFIG" #"NIHCC_MAINFIG"
+    if args.dataset == "NIHCC":
+        TSNE_PATH = (
+            "umap_nih_AEBCE"  # "umap_drd_AEBCE"#"umap_padchest_AEBCE" #"ALI_NIHCC"
+        )
+        BAR_PATH = "nih_proced_res_mode1"  # "drd_proced_res_2"#"pad_new_res" #"nih_res"
+        D1 = "NIHCC"  # "DRD"#"PAD"#"NIHCC"
+        IMG1 = "sample_images/mura.png"  # "sample_images/mnist.png"#"sample_images/tinyimagenet.JPEG"#"sample_images/mura.png"
+        IMG2 = "sample_images/padchest_lateral.png"  # "sample_images/drimdb.png"#"sample_images/padchest_AP.png"#"sample_images/padchest_lateral.png"
+        IMG3 = "sample_images/pneumothorax.png"  # "sample_images/riga.jpg"#"sample_images/pneumothorax.png"
+
+        ORDER = {
+            "score_svm/0": 0,
+            "prob_threshold/0": 1,
+            "odin/0": 2,
+            "12Layer-AE-BCE": 3,
+            "svknn": 4,
+            "mseaeknn/1": 5,
+            "bceaeknn/1": 6,
+            "vaebceaeknn/1": 7,
+            "bceaeknn/8": 8,
+            "mseaeknn/8": 9,
+            "12Layer-VAE-MSE": 10,
+            "vaemseaeknn/1": 11,
+            "12Layer-AE-MSE": 12,
+            "vaebceaeknn/8": 13,
+            "knn/1": 14,
+            "ALI_reconst/0": 15,
+            "vaemseaeknn/8": 16,
+            "Maha1layer": 17,
+            "binclass/0": 18,
+            "12Layer-VAE-BCE": 19,
+            "knn/8": 20,
+            "Maha": 21,
+            "RETO": 22,
+        }
+
+        N_MAX = 20
+    elif args.dataset == "PAD":
+        TSNE_PATH = "umap_padchest_AEBCE"
+        BAR_PATH = "pad_proced_res_mode1"
+        D1 = "PAD"
+        IMG1 = "sample_images/tinyimagenet.JPEG"
+        IMG2 = "sample_images/padchest_AP.png"
+        IMG3 = "sample_images/pad_cardiomegaly.png"
+        ORDER = {
+            "bceaeknn/1": 0,
+            "prob_threshold/0": 1,
+            "odin/0": 2,
+            "mseaeknn/1": 3,
+            "bceaeknn/8": 4,
+            "vaebceaeknn/1": 5,
+            "score_svm/0": 6,
+            "12Layer-AE-BCE": 7,
+            "mseaeknn/8": 8,
+            "12Layer-VAE-BCE": 9,
+            "12Layer-AE-MSE": 10,
+            "vaemseaeknn/1": 11,
+            "knn/1": 12,
+            "12Layer-VAE-MSE": 13,
+            "vaebceaeknn/8": 14,
+            "vaemseaeknn/8": 15,
+            "svknn": 16,
+            "Maha": 17,
+            "knn/8": 18,
+            "binclass/0": 19,
+            "Maha1layer": 20,
+            "RETO": 21,
+        }
+        N_MAX = 20
+    elif args.dataset == "DRD":
+        TSNE_PATH = "umap_drd_AEBCE"
+        BAR_PATH = "drd_proced_res_mode1"
+        D1 = "DRD"
+        IMG1 = "sample_images/mnist.png"
+        IMG2 = "sample_images/drimdb.png"
+        IMG3 = "sample_images/riga_sq.jpg"
+        ORDER = {
+            "score_svm/0": 0,
+            "prob_threshold/0": 1,
+            "odin/0": 2,
+            "svknn": 3,
+            "vaemseaeknn/1": 4,
+            "vaemseaeknn/8": 5,
+            "vaebceaeknn/1": 6,
+            "12Layer-AE-BCE": 7,
+            "vaebceaeknn/8": 8,
+            "Maha": 9,
+            "Maha1layer": 10,
+            "mseaeknn/1": 11,
+            "binclass/0": 12,
+            "12Layer-AE-MSE": 13,
+            "12Layer-VAE-BCE": 14,
+            "12Layer-VAE-MSE": 15,
+            "knn/1": 16,
+            "knn/8": 17,
+            "bceaeknn/1": 18,
+            "mseaeknn/8": 19,
+            "bceaeknn/8": 20,
+            "RETO": 21,
+        }
+        N_MAX = 10
+    elif args.dataset == "PCAM":
+        TSNE_PATH = "umap_pcam_AEBCE"
+        BAR_PATH = "pcam_proced_res_mode1"
+        D1 = "PCAM"
+        IMG1 = "sample_images/malaria.png"
+        IMG2 = "sample_images/IDC.png"
+        ORDER = {
+            "prob_threshold/0": 0,
+            "svknn": 1,
+            "odin/0": 2,
+            "12Layer-AE-BCE": 3,
+            "12Layer-AE-MSE": 4,
+            "score_svm/0": 5,
+            "mseaeknn/1": 6,
+            "vaemseaeknn/1": 7,
+            "vaemseaeknn/8": 8,
+            "vaebceaeknn/8": 9,
+            "vaebceaeknn/1": 10,
+            "12Layer-VAE-BCE": 11,
+            "mseaeknn/8": 12,
+            "bceaeknn/1": 13,
+            "bceaeknn/8": 14,
+            "12Layer-VAE-MSE": 15,
+            "knn/1": 16,
+            "knn/8": 17,
+            "binclass/0": 18,
+            "Maha1layer": 19,
+            "Maha": 20,
+            "RETO": 21,
+        }
+        N_MAX = 15
+    matplotlib.rc("axes", edgecolor=(0.3, 0.3, 0.3, 0.8))
 
     plt.rc("font", size=5)  # controls default text sizes
     plt.rc("axes", titlesize=5)  # fontsize of the axes title
@@ -276,10 +626,7 @@ if __name__ == "__main__":
     plt.rc("ytick", labelsize=5)  # fontsize of the tick labels
     plt.rc("legend", fontsize=5)  # legend fontsize
     plt.rc("figure", titlesize=10)  # fontsize of the figure title
-    # plt.rcParams.update({'font.size': 9})
-    # large subplot
-    ax_L0 = plt.subplot2grid((3, 6), (0, 2), colspan=4, rowspan=1)
-    ax_L0.yaxis.tick_right()
+
     kiohandles = [
         "prob_threshold/0",
         "score_svm/0",
@@ -303,6 +650,7 @@ if __name__ == "__main__":
         "vaebceaeknn/1",
         "mseaeknn/1",
         "vaemseaeknn/1",
+        "RETO",
     ]
 
     alias = {
@@ -320,119 +668,223 @@ if __name__ == "__main__":
         "ALI_reconst/0": "Reconst. ALI",
         "knn/1": "KNN-1",
         "knn/8": "KNN-8",
-        "bceaeknn-8": "AEBCE-KNN-8",
-        "vaebceaeknn-8": "VAEBCE-KNN-8",
+        "bceaeknn/8": "AEBCE-KNN-8",
+        "vaebceaeknn/8": "VAEBCE-KNN-8",
         "mseaeknn/8": "AEMSE-KNN-8",
         "vaemseaeknn/8": "VAEMSE-KNN-8",
         "bceaeknn/1": "AEBCE-KNN-1",
         "vaebceaeknn/1": "VAEBCE-KNN-1",
         "mseaeknn/1": "AEMSE-KNN-1",
         "vaemseaeknn/1": "VAEMSE-KNN-1",
+        "RETO": "RETO",
     }
 
     catalias = {
         "UniformNoise": "Noise",
         "FashionMNIST": "Fashion",
-        "PADChestAP": "Ant. Pos.",
-        "PADChestL": "Lateral",
-        "PADChestAPHorizontal": "AP Horizontal",
-        "PADChestPED": "Pediatric",
+        "PADChestAP": "PC Ant. Pos.",
+        "PADChestL": "PC Lateral",
+        "PADChestAPHorizontal": "PC AP Horizontal",
+        "PADChestPED": "PC Pediatric",
+        "RIGA": "Glaucoma",
     }
 
-    _, inds, corder = plot_result(
-        "workspace/experiments/nih_res", "NIHCC", 1, ax_L0, keep_only_handles=kiohandles
-    )
-    ax_L1 = plt.subplot2grid((3, 6), (1, 2), colspan=4, rowspan=1)
-    ax_L1.yaxis.tick_right()
-    plot_result(
-        "workspace/experiments/nih_res",
-        "NIHCC",
-        2,
-        ax_L1,
-        inds,
-        c_order=corder,
-        keep_only_handles=kiohandles,
-    )
+    if args.dataset == "PCAM":
+        if PREVIEW_DOUBLE:
+            fig = plt.figure(1, figsize=(6, 2.5), dpi=109 * 2)
+        else:
+            fig = plt.figure(
+                1, figsize=(6, 2.5), dpi=109
+            )  # dpi set to match preview to print size on a 14 inch tall, 1440p monitor.
+            # set up subplot grid
+        gridspec.GridSpec(2, 6)  # nrow by n col         # effectively 1 inch squres
 
-    ax_L2 = plt.subplot2grid((3, 6), (2, 2), colspan=4, rowspan=1)
-    ax_L2.yaxis.tick_right()
-    plot_result(
-        "workspace/experiments/nih_res",
-        "NIHCC",
-        3,
-        ax_L2,
-        inds,
-        c_order=corder,
-        with_x_tick=True,
-        keep_only_handles=kiohandles,
-        alias=alias,
-    )
+        ax_L0 = plt.subplot2grid((2, 6), (0, 2), colspan=4, rowspan=1)
+        ax_L0.annotate(
+            "C",
+            xy=(0.0, 1),
+            xycoords="axes fraction",
+            fontsize=7,
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            va="baseline",
+        )
+        ax_L0.yaxis.tick_right()
+        _, inds, corder = plot_result(
+            BAR_PATH,
+            D1,
+            1,
+            ax_L0,
+            order=ORDER,
+            keep_only_handles=kiohandles,
+            color_scheme="bluered",
+            sort_separate=False,
+        )
+        ax_L1 = plt.subplot2grid((2, 6), (1, 2), colspan=4, rowspan=1)
+        ax_L1.yaxis.tick_right()
+        plot_result(
+            BAR_PATH,
+            D1,
+            2,
+            ax_L1,
+            inds,
+            c_order=corder,
+            keep_only_handles=kiohandles,
+            color_scheme="bluered",
+            with_x_tick=True,
+            legend=True,
+            alias=alias,
+        )
 
-    ax_s11 = plt.subplot2grid((3, 6), (0, 1), colspan=1, rowspan=1)
-    _, color_space, cat2color = plot_tsne("workspace/experiments/ALI_NIHCC", 1, ax_s11)
-    ax_s21 = plt.subplot2grid((3, 6), (1, 1), colspan=1, rowspan=1)
-    plot_tsne(
-        "workspace/experiments/ALI_NIHCC",
-        2,
-        ax_s21,
-        color_space=color_space,
-        cat2color=cat2color,
-    )
-    ax_s31 = plt.subplot2grid((3, 6), (2, 1), colspan=1, rowspan=1)
-    plot_tsne(
-        "workspace/experiments/ALI_NIHCC",
-        3,
-        ax_s31,
-        color_space=color_space,
-        cat2color=cat2color,
-    )
+        ax_s11 = plt.subplot2grid((2, 6), (0, 1), colspan=1, rowspan=1)
+        ax_s11.annotate(
+            "B",
+            xy=(0.0, 1),
+            xycoords="axes fraction",
+            fontsize=7,
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            va="baseline",
+        )
+        _, color_space, cat2color = plot_tsne(TSNE_PATH, 1, ax_s11, n_color_max=N_MAX)
+        ax_s21 = plt.subplot2grid((2, 6), (1, 1), colspan=1, rowspan=1)
+        plot_tsne(
+            TSNE_PATH,
+            2,
+            ax_s21,
+            color_space=color_space,
+            cat2color=cat2color,
+            n_color_max=N_MAX,
+        )
 
-    cats = list(cat2color.keys())
-    for i, cat in enumerate(cats):
-        if cat in catalias:
-            cats[i] = catalias[cat]
-    colors = list(cat2color.values())
-    id = cats.index("In-Data")
-    cats = ["In-data",] + cats[:id] + cats[id + 1 :]
-    colors = [colors[id],] + colors[:id] + colors[id + 1 :]
-    markers = [
-        plt.Line2D([0, 0], [0, 0], color=color, marker="o", linestyle="")
-        for color in colors
-    ]
-    fig.legend(
-        markers,
-        cats,
-        title="Scatter plot legend",
-        numpoints=1,
-        loc="upper left",
-        bbox_to_anchor=(0.0, 0.2),
-        ncol=3,
-        markerscale=0.6,
-        labelspacing=0.3,  # default 0.5
-        columnspacing=1.0,  # default 2.0
-        borderaxespad=0.5,  # default 0.5
-    )
+        cats = list(cat2color.keys())
+        for i, cat in enumerate(cats):
+            if cat in catalias:
+                cats[i] = catalias[cat]
+        colors = list(cat2color.values())
+        id = cats.index("In-Data")
+        cats = (
+            [
+                "In-data",
+            ]
+            + cats[:id]
+            + cats[id + 1 :]
+        )
+        colors = (
+            [
+                colors[id],
+            ]
+            + colors[:id]
+            + colors[id + 1 :]
+        )
+        markers = [
+            plt.Line2D([0, 0], [0, 0], color=color, marker="o", linestyle="")
+            for color in colors
+        ]
+        fig.legend(
+            markers,
+            cats,
+            title="Visualization of AEBCE latent space",
+            numpoints=1,
+            loc="upper left",
+            bbox_to_anchor=(0.0, 0.265),
+            ncol=3,
+            markerscale=0.6,
+            labelspacing=0.2,  # default 0.5
+            columnspacing=0.8,  # default 2.0
+            borderaxespad=0.4,  # default 0.5
+        )
 
-    ax_s10 = plt.subplot2grid((3, 6), (0, 0), colspan=1, rowspan=1)
-    plot_image("sample_images/mura.png", ax_s10)
-    ax_s20 = plt.subplot2grid((3, 6), (1, 0), colspan=1, rowspan=1)
-    plot_image("sample_images/padchest_lateral.png", ax_s20)
-    ax_s30 = plt.subplot2grid((3, 6), (2, 0), colspan=1, rowspan=1)
-    plot_image("sample_images/pneumothorax.png", ax_s30)
+        ax_s10 = plt.subplot2grid((2, 6), (0, 0), colspan=1, rowspan=1)
+        ax_s10.annotate(
+            "A",
+            xy=(0.0, 1),
+            xycoords="axes fraction",
+            fontsize=7,
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            va="baseline",
+        )
+        plot_image(IMG1, ax_s10, uc=1)
+        ax_s20 = plt.subplot2grid((2, 6), (1, 0), colspan=1, rowspan=1)
+        plot_image(IMG2, ax_s20, uc=2)
 
-    plt.subplots_adjust(
-        wspace=0.1, hspace=0.1, bottom=0.20, top=0.95, right=0.95, left=0.01
-    )
+        plt.subplots_adjust(
+            wspace=0.1, hspace=0.1, bottom=0.265, top=0.95, right=0.95, left=0.018
+        )  # bottom=0.205
 
-    plt.savefig("NIHCC_sample.svg")
-    plt.savefig("NIHCC_sample.png")
-    fig.show()
+        plt.savefig(SAVE_NAME + ".svg")
+        plt.savefig(SAVE_NAME + ".png")
+        fig.show()
+    else:
+        if PREVIEW_DOUBLE:
+            fig = plt.figure(1, figsize=(6, 3.5), dpi=109 * 2)
+        else:
+            fig = plt.figure(
+                1, figsize=(6, 3.5), dpi=109
+            )  # dpi set to match preview to print size on a 14 inch tall, 1440p monitor.
+            # set up subplot grid
+        gridspec.GridSpec(3, 6)  # nrow by n col         # effectively 1 inch squres
+        ax_L0 = plt.subplot2grid((3, 6), (0, 2), colspan=4, rowspan=1)
+        ax_L0.annotate(
+            "C",
+            xy=(0.0, 1),
+            xycoords="axes fraction",
+            fontsize=7,
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            va="baseline",
+        )
+        ax_L0.yaxis.tick_right()
+        _, inds, corder = plot_result(
+            BAR_PATH,
+            D1,
+            1,
+            ax_L0,
+            order=ORDER,
+            keep_only_handles=kiohandles,
+            color_scheme="bluered",
+            sort_separate=False,
+        )
+        ax_L1 = plt.subplot2grid((3, 6), (1, 2), colspan=4, rowspan=1)
+        ax_L1.yaxis.tick_right()
+        plot_result(
+            BAR_PATH,
+            D1,
+            2,
+            ax_L1,
+            inds,
+            c_order=corder,
+            keep_only_handles=kiohandles,
+            color_scheme="bluered",
+            alias=alias,
+        )
 
+        ax_L2 = plt.subplot2grid((3, 6), (2, 2), colspan=4, rowspan=1)
+        ax_L2.yaxis.tick_right()
+        plot_result(
+            BAR_PATH,
+            D1,
+            3,
+            ax_L2,
+            inds,
+            c_order=corder,
+            with_x_tick=True,
+            keep_only_handles=kiohandles,
+            alias=alias,
+            color_scheme="bluered",
+            legend=True,
+        )
+
+        plt.subplots_adjust(
+            wspace=0.1, hspace=0.1, bottom=0.205, top=0.95, right=0.95, left=0.018
+        )  # bottom=0.205
+
+        plt.savefig(SAVE_NAME + ".svg")
+        plt.savefig(SAVE_NAME + ".png")
+        fig.show()
     print("done")
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--square_col_0_path', type=str)
-    # parser.add_argument('--square_col_1_path', type=str)
-    # parser.add_argument('--perf_path', type=str)
-    # parser.add_argument('--save_path', type=str, default='test', help='The save path. (default test)')
-
-    # args = parser.parse_args()
