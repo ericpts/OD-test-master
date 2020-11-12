@@ -31,7 +31,7 @@ def retry(f):
         try:
             return f()
         except:
-            time.sleep(5)
+            time.sleep(1)
             print("Retrying mlflow.")
 
 
@@ -128,7 +128,7 @@ def plot_image(file_path, ax, uc):
     return ax
 
 
-def load_reto(d1, uc):
+def load_reto(d1, uc, pretrained: bool = False):
     if d1 == "NIHCC":
         D_id = "nih_id"
         D_ood = {
@@ -168,7 +168,7 @@ def load_reto(d1, uc):
         if run.data.params.get("ensemble_type") != "assign_one_label":
             continue
 
-        if run.data.params.get("use_pretrained_model") != "False":
+        if run.data.params.get("use_pretrained_model") != str(pretrained):
             continue
 
         if run.data.params.get("model_arch") != "densenet":
@@ -184,6 +184,9 @@ def load_reto(d1, uc):
             "aupr": metrics["heur_aupr_avg_diff"],
         }.items():
             stats[k].append(v)
+
+    for k, v in stats.items():
+        assert len(v) > 0, f"Could not find any stats for {k}."
 
     return {k: np.mean(v) for k, v in stats.items()}
 
@@ -208,6 +211,7 @@ def plot_result(
         csv_headers = _pickle.load(fp)
 
     csv_headers[0].append("RETO")
+    csv_headers[0].append("RETO(pretrained)")
     method_handles = csv_headers[0]
 
     weights = csv_data[0]
@@ -240,12 +244,19 @@ def plot_result(
             / np.sqrt(new_weights.sum((1, 2, 3)))
         )
 
-    reto_data = load_reto(d1, uc)
+    reto_data = load_reto(d1, uc, pretrained=False)
 
     rocm = np.append(rocm, reto_data["auroc"] * 100)
     rocv = np.append(rocv, 0.0)
 
     prcm = np.append(prcm, reto_data["aupr"] * 100)
+    prcv = np.append(prcv, 0.0)
+
+    pretrained_reto_data = load_reto(d1, uc, pretrained=True)
+    rocm = np.append(rocm, pretrained_reto_data["auroc"] * 100)
+    rocv = np.append(rocv, 0.0)
+
+    prcm = np.append(prcm, pretrained_reto_data["aupr"] * 100)
     prcv = np.append(prcv, 0.0)
 
     if order is None:
@@ -519,6 +530,7 @@ if __name__ == "__main__":
             "knn/8": 20,
             "Maha": 21,
             "RETO": 22,
+            "RETO(pretrained)": 23,
         }
 
         N_MAX = 20
@@ -552,6 +564,7 @@ if __name__ == "__main__":
             "binclass/0": 19,
             "Maha1layer": 20,
             "RETO": 21,
+            "RETO(pretrained)": 22,
         }
         N_MAX = 20
     elif args.dataset == "DRD":
@@ -584,6 +597,7 @@ if __name__ == "__main__":
             "mseaeknn/8": 19,
             "bceaeknn/8": 20,
             "RETO": 21,
+            "RETO(pretrained)": 22,
         }
         N_MAX = 10
     elif args.dataset == "PCAM":
@@ -615,6 +629,7 @@ if __name__ == "__main__":
             "Maha1layer": 19,
             "Maha": 20,
             "RETO": 21,
+            "RETO(pretrained)": 22,
         }
         N_MAX = 15
     matplotlib.rc("axes", edgecolor=(0.3, 0.3, 0.3, 0.8))
@@ -651,6 +666,7 @@ if __name__ == "__main__":
         "mseaeknn/1",
         "vaemseaeknn/1",
         "RETO",
+        "RETO(pretrained)",
     ]
 
     alias = {
@@ -677,6 +693,7 @@ if __name__ == "__main__":
         "mseaeknn/1": "AEMSE-KNN-1",
         "vaemseaeknn/1": "VAEMSE-KNN-1",
         "RETO": "RETO",
+        "RETO(pretrained)": "RETO(pretrained)",
     }
 
     catalias = {
