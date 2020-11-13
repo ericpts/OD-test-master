@@ -53,8 +53,8 @@ class DeepEnsembleLoss(nn.Module):
 
     def forward(self, input, target):
         """
-            In deep ensembles, we optimize the following objective:
-            l(w, X, Y) + l(w, X', Y) where X' is the X FGSM-perturbed sample.
+        In deep ensembles, we optimize the following objective:
+        l(w, X, Y) + l(w, X', Y) where X' is the X FGSM-perturbed sample.
         """
         # Let's calculate the first part of the loss.
         loss_1 = self.loss(input, target)
@@ -87,8 +87,8 @@ class DeepEnsembleLoss(nn.Module):
 
 class DeepEnsembleMasterWrapper(nn.Module):
     """
-        This master wrapper evalutes and averages over multiple networks.
-        Nothing special happenning here.
+    This master wrapper evalutes and averages over multiple networks.
+    Nothing special happenning here.
     """
 
     def __init__(self, subwrappers):
@@ -117,9 +117,9 @@ class DeepEnsembleMasterWrapper(nn.Module):
 
 
 class DeepEnsembleModelWrapper(AbstractModelWrapper):
-    """ The wrapper class for H.
-        This is the network that is actually saved on evaluations.
-        We don't want to replicate multiple networks over each snapshot.
+    """The wrapper class for H.
+    This is the network that is actually saved on evaluations.
+    We don't want to replicate multiple networks over each snapshot.
     """
 
     def __init__(self, base_model):

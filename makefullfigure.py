@@ -393,7 +393,7 @@ def plot_result(
         ind[group_inds0] - width * 0.5,
         sorted_rocm[group_inds0],
         width,
-        yerr=pp_rocv[:, group_inds0],
+        # yerr=pp_rocv[:, group_inds0],
         label="AUROC",
         color=sorted_colors_0[group_inds0],
         error_kw={"elinewidth": 0.8},
@@ -402,7 +402,7 @@ def plot_result(
         ind[group_inds1] - width * 0.5,
         sorted_rocm[group_inds1],
         width,
-        yerr=pp_rocv[:, group_inds1],
+        # yerr=pp_rocv[:, group_inds1],
         label="AUROC",
         color=sorted_colors_0[group_inds1],
         error_kw={"elinewidth": 0.8},
@@ -411,7 +411,7 @@ def plot_result(
         ind[group_inds2] - width * 0.5,
         sorted_rocm[group_inds2],
         width,
-        yerr=pp_rocv[:, group_inds2],
+        # yerr=pp_rocv[:, group_inds2],
         label="AUROC",
         color=sorted_colors_0[group_inds2],
         error_kw={"elinewidth": 0.8},
@@ -422,7 +422,7 @@ def plot_result(
         ind[group_inds0] + width * 0.5,
         sorted_prcm[group_inds0],
         width,
-        yerr=pp_prcv[:, group_inds0],
+        # yerr=pp_prcv[:, group_inds0],
         label="AUPRC",
         color=sorted_colors[group_inds0],
         error_kw={"elinewidth": 0.8},
@@ -431,7 +431,7 @@ def plot_result(
         ind[group_inds1] + width * 0.5,
         sorted_prcm[group_inds1],
         width,
-        yerr=pp_prcv[:, group_inds1],
+        # yerr=pp_prcv[:, group_inds1],
         label="AUPRC",
         color=sorted_colors[group_inds1],
         error_kw={"elinewidth": 0.8},
@@ -440,7 +440,7 @@ def plot_result(
         ind[group_inds2] + width * 0.5,
         sorted_prcm[group_inds2],
         width,
-        yerr=pp_prcv[:, group_inds2],
+        # yerr=pp_prcv[:, group_inds2],
         label="AUPRC",
         color=sorted_colors[group_inds2],
         error_kw={"elinewidth": 0.8},
@@ -481,6 +481,8 @@ def plot_result(
             borderaxespad=0.3,  # default 0.5
         )
     ax.axhline(y=50, linewidth=0.5, color=(0.3, 0.3, 0.35, 0.8), ls="--")
+    ax.axhline(y=75, linewidth=0.5, color=(0.3, 0.3, 0.35, 0.8), ls="--")
+    ax.axhline(y=100, linewidth=0.5, color=(0.3, 0.3, 0.35, 0.8), ls="--")
     # ax.legend()
     return ax, full_inds, c_order
 
@@ -717,16 +719,16 @@ if __name__ == "__main__":
         gridspec.GridSpec(2, 6)  # nrow by n col         # effectively 1 inch squres
 
         ax_L0 = plt.subplot2grid((2, 6), (0, 2), colspan=4, rowspan=1)
-        ax_L0.annotate(
-            "C",
-            xy=(0.0, 1),
-            xycoords="axes fraction",
-            fontsize=7,
-            xytext=(0, 3),
-            textcoords="offset points",
-            ha="center",
-            va="baseline",
-        )
+        # ax_L0.annotate(
+        #     "C",
+        #     xy=(0.0, 1),
+        #     xycoords="axes fraction",
+        #     fontsize=7,
+        #     xytext=(0, 3),
+        #     textcoords="offset points",
+        #     ha="center",
+        #     va="baseline",
+        # )
         ax_L0.yaxis.tick_right()
         _, inds, corder = plot_result(
             BAR_PATH,
@@ -833,7 +835,7 @@ if __name__ == "__main__":
             wspace=0.1, hspace=0.1, bottom=0.265, top=0.95, right=0.95, left=0.018
         )  # bottom=0.205
 
-        plt.savefig(SAVE_NAME + ".svg")
+        # plt.savefig(SAVE_NAME + ".svg")
         plt.savefig(SAVE_NAME + ".png")
         fig.show()
     else:
@@ -846,16 +848,16 @@ if __name__ == "__main__":
             # set up subplot grid
         gridspec.GridSpec(3, 6)  # nrow by n col         # effectively 1 inch squres
         ax_L0 = plt.subplot2grid((3, 6), (0, 2), colspan=4, rowspan=1)
-        ax_L0.annotate(
-            "C",
-            xy=(0.0, 1),
-            xycoords="axes fraction",
-            fontsize=7,
-            xytext=(0, 3),
-            textcoords="offset points",
-            ha="center",
-            va="baseline",
-        )
+        # ax_L0.annotate(
+        #     "C",
+        #     xy=(0.0, 1),
+        #     xycoords="axes fraction",
+        #     fontsize=7,
+        #     xytext=(0, 3),
+        #     textcoords="offset points",
+        #     ha="center",
+        #     va="baseline",
+        # )
         ax_L0.yaxis.tick_right()
         _, inds, corder = plot_result(
             BAR_PATH,
@@ -901,7 +903,7 @@ if __name__ == "__main__":
             wspace=0.1, hspace=0.1, bottom=0.205, top=0.95, right=0.95, left=0.018
         )  # bottom=0.205
 
-        plt.savefig(SAVE_NAME + ".svg")
+        # plt.savefig(SAVE_NAME + ".svg")
         plt.savefig(SAVE_NAME + ".png")
         fig.show()
     print("done")

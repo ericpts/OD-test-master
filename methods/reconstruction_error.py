@@ -18,8 +18,8 @@ import global_vars as Global
 
 
 class RTModelWrapper(AbstractModelWrapper):
-    """ The wrapper class for H.
-        decision function tau > (x-mu)^2
+    """The wrapper class for H.
+    decision function tau > (x-mu)^2
     """
 
     def __init__(self, base_model, loss_variant=0):

@@ -326,7 +326,9 @@ if __name__ == "__main__":
                     root_path=os.path.join(args.root_path, "NIHCC"),
                     binary=True,
                     test_length=5000,
-                    keep_in_classes=[d2,],
+                    keep_in_classes=[
+                        d2,
+                    ],
                 )
                 D3 = NIHChest(
                     root_path=os.path.join(args.root_path, "NIHCC"),
@@ -364,7 +366,9 @@ if __name__ == "__main__":
                     root_path=os.path.join(args.root_path, "NIHCC"),
                     binary=True,
                     test_length=5000,
-                    keep_in_classes=[d2,],
+                    keep_in_classes=[
+                        d2,
+                    ],
                 )
                 D3 = NIHChest(
                     root_path=os.path.join(args.root_path, "NIHCC"),

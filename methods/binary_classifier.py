@@ -16,16 +16,19 @@ from datasets import MirroredDataset
 
 
 class BinaryModelWrapper(nn.Module):
-    """ The wrapper class for H.
-        We add a layer at the end of any classifier. This module takes the |y| dimensional output
-        and maps it to a one-dimensional prediction.
+    """The wrapper class for H.
+    We add a layer at the end of any classifier. This module takes the |y| dimensional output
+    and maps it to a one-dimensional prediction.
     """
 
     def __init__(self, base_model):
         super(BinaryModelWrapper, self).__init__()
         self.base_model = base_model
         output_size = base_model.output_size()[1].item()
-        self.H = nn.Sequential(nn.BatchNorm1d(output_size), nn.Linear(output_size, 1),)
+        self.H = nn.Sequential(
+            nn.BatchNorm1d(output_size),
+            nn.Linear(output_size, 1),
+        )
 
     def forward(self, x):
         base_output = self.base_model.forward(x, softmax=False)

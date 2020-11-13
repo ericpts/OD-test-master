@@ -205,7 +205,12 @@ if __name__ == "__main__":
                 "STL10",
                 "TinyImagenet",
             ],
-            ["PADChestAPHorizontal", "PADChestPED", "PADChestAP", "PADChestPA",],
+            [
+                "PADChestAPHorizontal",
+                "PADChestPED",
+                "PADChestAP",
+                "PADChestPA",
+            ],
             [
                 "PADChestL_cardiomegaly",
                 "PADChestL_pneumothorax",
@@ -227,8 +232,12 @@ if __name__ == "__main__":
                 "STL10",
                 "TinyImagenet",
             ],
-            ["PAD",],
-            ["NIHCC",],
+            [
+                "PAD",
+            ],
+            [
+                "NIHCC",
+            ],
         ]
     if args.cache_dir is None:
         dir_path = args.result_dir

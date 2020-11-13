@@ -150,7 +150,15 @@ filenames = [
     "UC2_224-64_2.png",
     "UC3_224-64_2.png",
 ]
-d2sets = [["CIFAR10", "MURAHAND", "UniformNoise",], "PAD", "NIHCC"]
+d2sets = [
+    [
+        "CIFAR10",
+        "MURAHAND",
+        "UniformNoise",
+    ],
+    "PAD",
+    "NIHCC",
+]
 titles = ["Usecase 1", "Usecase 2", "Usecase 3"]
 for fn, d2, title in zip(filenames, d2sets, titles):
     make_plot(fn, d2, title)

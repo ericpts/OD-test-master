@@ -302,14 +302,18 @@ if __name__ == "__main__":
                     root_path=os.path.join(args.root_path, "NIHCC"),
                     binary=True,
                     test_length=5000,
-                    keep_in_classes=[d2,],
+                    keep_in_classes=[
+                        d2,
+                    ],
                 ).get_D2_test(D164)
             elif args.dataset == "PADChest":
                 D2 = PADChestSV(
                     root_path=os.path.join(args.root_path, "PADChest"),
                     binary=True,
                     test_length=5000,
-                    keep_in_classes=[d2,],
+                    keep_in_classes=[
+                        d2,
+                    ],
                     downsample=64,
                 ).get_D2_test(D164)
             d2s.append(D2)

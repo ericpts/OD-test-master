@@ -16,8 +16,7 @@ import global_vars as Global
 
 
 class ScoreSVMModelWrapper(AbstractModelWrapper):
-    """ The wrapper class for H.
-    """
+    """The wrapper class for H."""
 
     def __init__(self, base_model):
         super(ScoreSVMModelWrapper, self).__init__(base_model)

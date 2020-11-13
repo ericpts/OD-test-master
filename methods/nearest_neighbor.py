@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 class KNNModel(nn.Module):
     """
-        This is our Nearest Neighbour "neural network".
+    This is our Nearest Neighbour "neural network".
     """
 
     def __init__(self, base_data, k=1):
@@ -99,7 +99,7 @@ class KNNSVM(ScoreSVM):
 
 class AEKNNModel(nn.Module):
     """
-        This is our Nearest Neighbour "neural network" with AE latent representations.
+    This is our Nearest Neighbour "neural network" with AE latent representations.
     """
 
     def __init__(self, subnetwork, base_data, k=1, SV=False):

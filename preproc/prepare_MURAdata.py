@@ -18,7 +18,12 @@ if __name__ == "__main__":
 
     img_list = []
     with open(osp.join(source_dir, index_file), "r") as fp:
-        csvf = csv.DictReader(fp, ["Image Path",])
+        csvf = csv.DictReader(
+            fp,
+            [
+                "Image Path",
+            ],
+        )
         for row in csvf:
             imp = osp.join(source_dir, row["Image Path"][10:])
             if osp.exists(imp):

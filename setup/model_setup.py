@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     def needs_processing(args, dataset_class, models, suffix):
         """
-            This function checks whether this model is already trained and can be skipped.
+        This function checks whether this model is already trained and can be skipped.
         """
         for model in models:
             for suf in suffix:

@@ -45,7 +45,7 @@ class AbstractModelWrapper(nn.Module):
         self.eval_direct = eval_direct
 
     def train(self, mode=True):
-        """ Must override the train mode 
+        """Must override the train mode
         because the base_model is always in eval mode.
         """
         self.training = mode

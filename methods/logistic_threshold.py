@@ -12,8 +12,8 @@ from utils.iterative_trainer import IterativeTrainer
 
 class KWayLogisticWrapper(nn.Module):
     """
-        This class wraps around classifiers and forces them to become
-        a K-Way logistic regression model.
+    This class wraps around classifiers and forces them to become
+    a K-Way logistic regression model.
     """
 
     def __init__(self, parent_model):

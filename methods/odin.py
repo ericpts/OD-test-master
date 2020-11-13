@@ -36,8 +36,7 @@ from datasets import SubDataset, MirroredDataset
 
 
 class ODINModelWrapper(AbstractModelWrapper):
-    """ The wrapper class for H.
-    """
+    """The wrapper class for H."""
 
     def __init__(self, base_model, epsilon=0.0012, temperature=1000):
         super(ODINModelWrapper, self).__init__(base_model)

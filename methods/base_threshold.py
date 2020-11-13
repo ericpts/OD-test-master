@@ -25,9 +25,9 @@ import time
 
 
 class PTModelWrapper(AbstractModelWrapper):
-    """ The wrapper class for H.
-        For Base Threshold, we simply apply f(x) = sign(t-x), where x is the max probability and t is the threshold.
-        We learn the the threshold with an SVM loss and a zero margin. This yields exactly the optimal threshold learning problem.
+    """The wrapper class for H.
+    For Base Threshold, we simply apply f(x) = sign(t-x), where x is the max probability and t is the threshold.
+    We learn the the threshold with an SVM loss and a zero margin. This yields exactly the optimal threshold learning problem.
     """
 
     def __init__(self, base_model):

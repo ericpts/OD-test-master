@@ -19,8 +19,8 @@ from models.pixelcnn.utils import PCNN_Loss
 
 
 class PixelCNNModelWrapper(AbstractModelWrapper):
-    """ The wrapper class for H.
-        We get the log-likelihood from PixelCNN models.
+    """The wrapper class for H.
+    We get the log-likelihood from PixelCNN models.
     """
 
     def __init__(self, base_model):

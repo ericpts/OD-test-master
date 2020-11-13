@@ -39,8 +39,8 @@ import scipy.stats
 
 class LibNotMR(object):
     """
-        Instead of using LibMR (https://github.com/abhijitbendale/OSDN/tree/master/libMR) we implemented
-        the simple operations with Scipy. The output is checked against the original library for verification.
+    Instead of using LibMR (https://github.com/abhijitbendale/OSDN/tree/master/libMR) we implemented
+    the simple operations with Scipy. The output is checked against the original library for verification.
     """
 
     def __init__(self, tailsize=20):
@@ -99,8 +99,7 @@ def distance_measure(ref, target):
 
 
 class OTModelWrapper(AbstractModelWrapper):
-    """ The wrapper class for H.
-    """
+    """The wrapper class for H."""
 
     def __init__(self, base_model, mav, mr_models, alpharank=10):
         super(OTModelWrapper, self).__init__(base_model)

@@ -349,7 +349,9 @@ if __name__ == "__main__":
                     root_path=os.path.join(args.root_path, "PADChest"),
                     binary=True,
                     test_length=5000,
-                    keep_in_classes=[d2,],
+                    keep_in_classes=[
+                        d2,
+                    ],
                 )
                 D3 = PADChestSV(
                     root_path=os.path.join(args.root_path, "PADChest"),
@@ -395,7 +397,9 @@ if __name__ == "__main__":
                     root_path=os.path.join(args.root_path, "PADChest"),
                     binary=True,
                     test_length=5000,
-                    keep_in_classes=[d2,],
+                    keep_in_classes=[
+                        d2,
+                    ],
                     downsample=64,
                 )
                 D3 = PADChestSV(

@@ -17,8 +17,8 @@ from methods.base_threshold import ProbabilityThreshold
 
 
 class MCDropoutModelWrapper(AbstractModelWrapper):
-    """ The wrapper class for H.
-        For MCDropout we run the dropouts in train_mode.
+    """The wrapper class for H.
+    For MCDropout we run the dropouts in train_mode.
     """
 
     def __init__(self, base_model):

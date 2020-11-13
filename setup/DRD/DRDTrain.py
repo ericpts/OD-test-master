@@ -25,7 +25,8 @@ class DRDDenseCustom(DRDDense):
             )
         else:
             config["optim"] = optim.Adam(
-                self.densenet121.classifier.parameters(), lr=1e-3,
+                self.densenet121.classifier.parameters(),
+                lr=1e-3,
             )
         config["scheduler"] = optim.lr_scheduler.StepLR(config["optim"], 30, gamma=0.5)
         config["max_epoch"] = 300

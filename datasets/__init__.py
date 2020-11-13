@@ -15,15 +15,15 @@ import random
 
 class SubDataset(data.Dataset):
     """
-        SubDataset facilitates
-            (i) label override,
-            (ii) second transform,
-            (iii) random data splitting
-        You can optionally provide a cached flag to indicate that the target process will be
-        relying on cached output of the data, therefore knowing the index of the underlying data will be essential
-        to retrieve from the cache. When cached is activated, the pair (x, y) becomes (x, (y, idx)).
-        When optimizing for threshold, for instance, you don't need to run the underlying network for each input entry.
-        Using the index, you can just fetch the cached network output. See the implementation for examples.
+    SubDataset facilitates
+        (i) label override,
+        (ii) second transform,
+        (iii) random data splitting
+    You can optionally provide a cached flag to indicate that the target process will be
+    relying on cached output of the data, therefore knowing the index of the underlying data will be essential
+    to retrieve from the cache. When cached is activated, the pair (x, y) becomes (x, (y, idx)).
+    When optimizing for threshold, for instance, you don't need to run the underlying network for each input entry.
+    Using the index, you can just fetch the cached network output. See the implementation for examples.
     """
 
     def __init__(
@@ -65,7 +65,7 @@ class SubDataset(data.Dataset):
 
     def trim_dataset(self, new_length):
         """
-            Trim the dataset by picking the first new_length entries.
+        Trim the dataset by picking the first new_length entries.
         """
         assert self.indices.numel() >= new_length
         if self.reshuffle:
@@ -74,7 +74,7 @@ class SubDataset(data.Dataset):
 
     def split_dataset(self, p):
         """
-            Randomly split the data into approximately p, 1-p sets.
+        Randomly split the data into approximately p, 1-p sets.
         """
         p1 = torch.FloatTensor(self.indices.numel()).fill_(p).bernoulli().byte()
         d1 = SubDataset(
@@ -98,9 +98,9 @@ class SubDataset(data.Dataset):
 
 class ExpandRGBChannels(object):
     """
-        This transform exapands to 3 channels if the data is not already three channels.
-        Expectedly, it does not magically colorize the image!
-        When MNIST is put against CIFAR, for example, we expand the channels of MNIST.
+    This transform exapands to 3 channels if the data is not already three channels.
+    Expectedly, it does not magically colorize the image!
+    When MNIST is put against CIFAR, for example, we expand the channels of MNIST.
     """
 
     def __call__(self, tensor):
@@ -119,8 +119,8 @@ class ExpandRGBChannels(object):
 
 class AbstractDomainInterface(object):
     """
-        All the datasets used in this project must implement this interface.
-        P.S: I really hate the way python handles inheritence and abstractions.
+    All the datasets used in this project must implement this interface.
+    P.S: I really hate the way python handles inheritence and abstractions.
     """
 
     def __init__(self, **kwargs):

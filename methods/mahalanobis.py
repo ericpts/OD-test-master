@@ -149,8 +149,7 @@ class MahaModelWrapper(nn.Module):
 
 
 class MahaODModelWrapper(AbstractModelWrapper):
-    """ The wrapper class for Mahalanobis distance OOD detection
-    """
+    """The wrapper class for Mahalanobis distance OOD detection"""
 
     def __init__(
         self, base_model: MahaModelWrapper, num_class, num_layers, epsilon=0.0012
