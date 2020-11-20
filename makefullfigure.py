@@ -847,7 +847,7 @@ if __name__ == "__main__":
             )  # dpi set to match preview to print size on a 14 inch tall, 1440p monitor.
             # set up subplot grid
         gridspec.GridSpec(3, 6)  # nrow by n col         # effectively 1 inch squres
-        ax_L0 = plt.subplot2grid((3, 6), (0, 2), colspan=4, rowspan=1)
+        ax_L0 = plt.subplot2grid((3, 6), (0, 0), colspan=6, rowspan=1)
         # ax_L0.annotate(
         #     "C",
         #     xy=(0.0, 1),
@@ -869,7 +869,7 @@ if __name__ == "__main__":
             color_scheme="bluered",
             sort_separate=False,
         )
-        ax_L1 = plt.subplot2grid((3, 6), (1, 2), colspan=4, rowspan=1)
+        ax_L1 = plt.subplot2grid((3, 6), (1, 0), colspan=6, rowspan=1)
         ax_L1.yaxis.tick_right()
         plot_result(
             BAR_PATH,
@@ -883,7 +883,7 @@ if __name__ == "__main__":
             alias=alias,
         )
 
-        ax_L2 = plt.subplot2grid((3, 6), (2, 2), colspan=4, rowspan=1)
+        ax_L2 = plt.subplot2grid((3, 6), (2, 0), colspan=6, rowspan=1)
         ax_L2.yaxis.tick_right()
         plot_result(
             BAR_PATH,
